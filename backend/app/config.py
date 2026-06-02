@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "UZRJ"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = False
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://uzrj:uzrj@localhost:5432/uzrj"
@@ -15,8 +16,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # JWT
-    JWT_SECRET: str = "change-me-in-production"
-    JWT_ALGORITHM: str = "HS256"
+    SECRET_KEY: str = "your-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
