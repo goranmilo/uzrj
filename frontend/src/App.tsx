@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/layouts/ProtectedRoute';
 import { LoginPage } from '@/pages/Login';
 import { DashboardPage } from '@/pages/Dashboard';
 import { MembersPage } from '@/pages/Members';
+import { MemberDetailPage } from '@/pages/MemberDetail';
 import { ClanarinePage } from '@/pages/Clanarine';
 import { EdukacijePage } from '@/pages/Edukacije';
 import { DocumentsPage } from '@/pages/Documents';
@@ -36,6 +37,9 @@ function App() {
             <Route element={<MainLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/members" element={<MembersPage />} />
+              <Route path="/members/new" element={<MemberDetailPage />} />
+              <Route path="/members/:id" element={<MemberDetailPage />} />
+              <Route path="/members/:id/edit" element={<MemberDetailPage />} />
               <Route path="/clanarine" element={<ClanarinePage />} />
               <Route path="/edukacije" element={<EdukacijePage />} />
               <Route path="/documents" element={<DocumentsPage />} />
