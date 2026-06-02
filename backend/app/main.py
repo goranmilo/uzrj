@@ -55,8 +55,9 @@ async def health_check():
 
 
 # API routes
-from app.api.v1 import auth, users, email
+from app.api.v1 import auth, users, email, admin
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(email.router, prefix="/api/v1/email", tags=["Email"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
