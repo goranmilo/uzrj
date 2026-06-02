@@ -41,8 +41,8 @@ async def health_check():
     return {"status": "ok", "version": settings.APP_VERSION}
 
 
-# API routes will be added here
-# from app.api.v1 import auth, members, clanarine, edukacije, documents, admin, dashboard
-# app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
-# app.include_router(members.router, prefix="/api/v1/members", tags=["Members"])
-# ...
+# API routes
+from app.api.v1 import auth, users
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
