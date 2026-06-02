@@ -55,7 +55,7 @@ async def health_check():
 
 
 # API routes
-from app.api.v1 import auth, users, email, admin, members, clanarine
+from app.api.v1 import auth, users, email, admin, members, clanarine, edukacije
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
@@ -63,3 +63,4 @@ app.include_router(email.router, prefix="/api/v1/email", tags=["Email"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(members.router, prefix="/api/v1/members", tags=["Members"])
 app.include_router(clanarine.router, prefix="/api/v1/clanarine", tags=["Clanarine"])
+app.include_router(edukacije.router, prefix="/api/v1/edukacije", tags=["Edukacija"])
