@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.rbac import Role, Permission, has_permission, get_permissions
 
 settings = get_settings()
 security = HTTPBearer()
@@ -57,7 +58,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.user import User
+    from app.models import User
 
     payload = decode_token(credentials.credentials)
     user_id = payload.get("sub")
@@ -76,6 +77,7 @@ async def get_current_user(
 
 
 def require_role(*roles: str):
+    """Require user to have one of the specified roles."""
     async def role_checker(current_user=Depends(get_current_user)):
         if current_user.role not in roles:
             raise HTTPException(
@@ -84,3 +86,42 @@ def require_role(*roles: str):
             )
         return current_user
     return role_checker
+
+
+def require_permission(*permissions: Permission):
+    """Require user to have any of the specified permissions."""
+    async def permission_checker(current_user=Depends(get_current_user)):
+        user_role = Role(current_user.role)
+        user_permissions = get_permissions(user_role)
+
+        if not any(p in user_permissions for p in permissions):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Required permissions: {', '.join(p.value for p in permissions)}",
+            )
+        return current_user
+    return permission_checker
+
+
+def require_all_permissions(*permissions: Permission):
+    """Require user to have all specified permissions."""
+    async def permission_checker(current_user=Depends(get_current_user)):
+        user_role = Role(current_user.role)
+        user_permissions = get_permissions(user_role)
+
+        missing = [p for p in permissions if p not in user_permissions]
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Missing permissions: {', '.join(p.value for p in missing)}",
+            )
+        return current_user
+    return permission_checker
+
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"

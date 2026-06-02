@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.audit import AuditMiddleware
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -34,6 +36,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=60,
+    requests_per_hour=1000,
+    login_attempts_per_15min=5,
+)
+
+# Audit logging
+app.add_middleware(AuditMiddleware)
 
 
 @app.get("/health")
