@@ -295,8 +295,27 @@ uzrj/
 - Pretraga i filteri (odeljenje, zvanje, sprema)
 - Pregled člana sa edukacijama i bodovima
 
+**Uvoz iz Excel-a (Članovi → Import iz Excel-a):**
+
+- Podržani formati: `.xlsx`, `.xls`, `.csv`; prvi red su nazivi kolona
+  (`ime`, `prezime`, `jmbg`, `email`, `telefon`, `okg`, `status`,
+  `datum_uclanjenja`, `clanski_broj`, `sprema`, `zvanje`, `odeljenje`,
+  `kategorija_clanarine`, `licenca_broj`, `licenca_datum_izdavanja`,
+  `licenca_datum_isteka`) — šablon se preuzima dugmetom „Preuzmi šablon"
+- Poslati fajl se ne čuva na disku; obrađuje se kao privremeni upload, jer
+  sadrži lične podatke
+- Datumi se prihvataju u zapisima `d.m.Y`, `Y-m-d`, `d/m/Y`, `d-m-Y`, kao i u
+  Excel-ovom numeričkom zapisu; neprepoznat datum ostaje prazan i ne obara red
+- Numeričke ćelije (JMBG, telefon, članski broj) se vraćaju u tekst sa vodećom
+  nulom pre validacije
+- JMBG se proverava isto kao u formi za unos (kontrolna cifra). Red koji ne
+  prođe validaciju se preskače, ostali se uvoze, a razlog se prikazuje u
+  notifikaciji i upisuje u log
+- Postojeći član se prepoznaje po JMBG-u i ažurira
+
 **Ključne datoteke:**
 - `app/Filament/Resources/ClanResource.php`
+- `app/Filament/Resources/ClanResource/Pages/ListClans.php`
 - `app/Imports/ClanImport.php`
 - `app/Exports/ClanExport.php`
 - `app/Rules/Jmbg.php`
@@ -587,6 +606,8 @@ php artisan test
 | `tests/Feature/ClanarinaServiceTest.php` | Pro-rata, dvostruko zaduženje, uplate i statuse |
 | `tests/Feature/LicencaServiceTest.php` | Čuvanje licence, datum isteka, status |
 | `tests/Feature/ClanResourceLicencaTest.php` | Formu člana — unos i izmenu licence |
+| `tests/Feature/ClanImportTest.php` | Uvoz iz CSV/XLSX — formati datuma, numerički JMBG |
+| `tests/Feature/ClanImportActionTest.php` | Akciju „Import iz Excel-a" u panelu |
 | `tests/Feature/AuditLogTest.php` | Upis create/update/delete i filtriranje osetljivih polja |
 
 ---

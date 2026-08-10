@@ -2,16 +2,16 @@
 
 namespace App\Filament\Resources\ClanResource\Pages;
 
-use App\Exports\ClanExport;
 use App\Filament\Resources\ClanResource;
 use App\Imports\ClanImport;
 use Filament\Actions;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ListClans extends ListRecords
@@ -33,11 +33,43 @@ class ListClans extends ListRecords
                             'application/vnd.ms-excel',
                             'text/csv',
                         ])
+                        // Fajl sadrži lične podatke — ostaje privremeni (livewire-tmp)
+                        // i ne upisuje se na javni disk.
+                        ->storeFiles(false)
                         ->required(),
                 ])
                 ->action(function (array $data): void {
-                    $import = new ClanImport();
-                    Excel::import($import, $data['file']);
+                    $file = $data['file'];
+
+                    if (! $file instanceof TemporaryUploadedFile) {
+                        Notification::make()
+                            ->title('Import članova')
+                            ->body('Fajl nije ispravno primljen. Pokušajte ponovo.')
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
+                    $import = new ClanImport;
+
+                    try {
+                        Excel::import($import, $file->getRealPath(), null, static::citac($file));
+                    } catch (\Throwable $e) {
+                        Log::error('Greška pri importu članova', [
+                            'fajl' => $file->getClientOriginalName(),
+                            'error' => $e->getMessage(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Import nije uspeo')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
 
                     $imported = $import->getImportedCount();
                     $skipped = $import->getSkippedCount();
@@ -54,11 +86,12 @@ class ListClans extends ListRecords
                         ->success()
                         ->send();
 
-                    if (!empty($errors)) {
+                    if (! empty($errors)) {
                         Notification::make()
                             ->title('Greške pri importu')
-                            ->body(count($errors) . ' grešaka. Proverite log za detalje.')
+                            ->body(static::opisGresaka($errors))
                             ->warning()
+                            ->persistent()
                             ->send();
                     }
                 }),
@@ -74,6 +107,39 @@ class ListClans extends ListRecords
                 ->url(fn () => route('excel.template'))
                 ->openUrlInNewTab(),
         ];
+    }
+
+    /**
+     * Sažetak grešaka za notifikaciju — prvih nekoliko redova sa razlogom,
+     * ostatak se prati kroz log.
+     *
+     * @param  list<array{row: mixed, jmbg: mixed, error: string}>  $errors
+     */
+    protected static function opisGresaka(array $errors, int $prikazi = 5): string
+    {
+        $stavke = collect($errors)
+            ->take($prikazi)
+            ->map(fn (array $greska): string => "Red {$greska['row']} (JMBG {$greska['jmbg']}): {$greska['error']}")
+            ->implode(' ');
+
+        $preostalo = count($errors) - min($prikazi, count($errors));
+
+        return $preostalo > 0
+            ? $stavke." … i još {$preostalo}. Detalji su u logu."
+            : $stavke;
+    }
+
+    /**
+     * Tip čitača se bira po ekstenziji originalnog fajla — privremeni fajl
+     * iz livewire-tmp nema uvek upotrebljivu ekstenziju.
+     */
+    protected static function citac(TemporaryUploadedFile $file): string
+    {
+        return match (strtolower($file->getClientOriginalExtension())) {
+            'csv', 'txt' => ExcelFormat::CSV,
+            'xls' => ExcelFormat::XLS,
+            default => ExcelFormat::XLSX,
+        };
     }
 
     protected function getTableActions(): array

@@ -3,20 +3,31 @@
 namespace App\Imports;
 
 use App\Models\Clan;
+use App\Models\ClanarinaKategorija;
 use App\Models\Licenca;
+use App\Models\Odeljenje;
+use App\Models\Sprema;
+use App\Models\Zvanje;
+use App\Rules\Jmbg;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
+use Maatwebsite\Excel\Validators\Failure;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 
-class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBatchInserts, WithChunkReading
+class ClanImport implements SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $importedCount = 0;
+
     protected $skippedCount = 0;
+
     protected $errors = [];
 
     public function collection(Collection $rows)
@@ -39,19 +50,19 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
                 ];
 
                 // Mapiranje šifarnika (po imenu)
-                if (!empty($row['sprema'])) {
+                if (! empty($row['sprema'])) {
                     $clanData['sprema_id'] = $this->findOrCreateSprema($row['sprema']);
                 }
 
-                if (!empty($row['zvanje'])) {
+                if (! empty($row['zvanje'])) {
                     $clanData['zvanje_id'] = $this->findOrCreateZvanje($row['zvanje']);
                 }
 
-                if (!empty($row['odeljenje'])) {
+                if (! empty($row['odeljenje'])) {
                     $clanData['odeljenje_id'] = $this->findOrCreateOdeljenje($row['odeljenje']);
                 }
 
-                if (!empty($row['kategorija_clanarine'])) {
+                if (! empty($row['kategorija_clanarine'])) {
                     $clanData['kategorija_clanarine_id'] = $this->findKategorija($row['kategorija_clanarine']);
                 }
 
@@ -62,7 +73,7 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
                 );
 
                 // Kreiranje licence ako postoji
-                if (!empty($row['licenca_broj'])) {
+                if (! empty($row['licenca_broj'])) {
                     $this->createOrUpdateLicenca($clan, $row);
                 }
 
@@ -90,10 +101,64 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
         return [
             'ime' => 'required|string|max:255',
             'prezime' => 'required|string|max:255',
-            'jmbg' => 'required|string|size:13',
+            // Ista provera kontrolne cifre kao u formi za unos člana.
+            'jmbg' => ['required', 'string', 'size:13', new Jmbg],
             'email' => 'nullable|email|max:255',
             'telefon' => 'nullable|string|max:20',
         ];
+    }
+
+    /**
+     * Red koji ne prođe validaciju se preskače i prijavljuje, umesto da
+     * prekine ceo uvoz.
+     */
+    public function onFailure(Failure ...$failures): void
+    {
+        foreach ($failures as $failure) {
+            $this->skippedCount++;
+            $this->errors[] = [
+                'row' => $failure->row(),
+                'jmbg' => $failure->values()['jmbg'] ?? 'N/A',
+                'error' => implode(' ', $failure->errors()),
+            ];
+
+            Log::warning('Red preskočen pri importu članova', [
+                'row' => $failure->row(),
+                'errors' => $failure->errors(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function customValidationMessages(): array
+    {
+        return [
+            'jmbg.size' => 'JMBG mora imati 13 cifara.',
+        ];
+    }
+
+    /**
+     * Excel numeričke ćelije stižu kao brojevi (JMBG bez vodeće nule, telefon
+     * bez nule na početku), pa se pre validacije vraćaju u tekstualni oblik.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function prepareForValidation($data, $index)
+    {
+        if (filled($data['jmbg'] ?? null)) {
+            $data['jmbg'] = $this->formatJmbg((string) $data['jmbg']);
+        }
+
+        foreach (['telefon', 'okg', 'clanski_broj', 'licenca_broj'] as $polje) {
+            if (isset($data[$polje]) && is_numeric($data[$polje])) {
+                $data[$polje] = (string) $data[$polje];
+            }
+        }
+
+        return $data;
     }
 
     public function batchSize(): int
@@ -111,6 +176,7 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
     private function formatJmbg(string $jmbg): string
     {
         $jmbg = preg_replace('/[^0-9]/', '', $jmbg);
+
         return str_pad($jmbg, 13, '0', STR_PAD_LEFT);
     }
 
@@ -128,18 +194,44 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
         return $statusMap[strtolower($status)] ?? 'aktivan';
     }
 
-    private function parseDate(?string $date): ?string
+    private function parseDate(mixed $date): ?string
     {
-        if (empty($date)) {
+        if (blank($date)) {
             return null;
         }
 
-        // Pokušaj različite formate
+        if ($date instanceof \DateTimeInterface) {
+            return Carbon::instance($date)->format('Y-m-d');
+        }
+
+        // Excel čuva datume kao redni broj dana od 1900. godine.
+        if (is_numeric($date)) {
+            try {
+                return Carbon::instance(
+                    Date::excelToDateTimeObject((float) $date)
+                )->format('Y-m-d');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        $date = trim((string) $date);
+
+        // Pokušaj različite formate. Carbon baca izuzetak kad format ne odgovara,
+        // pa se svaki pokušaj mora izolovati — inače prvi neodgovarajući format
+        // obara ceo red.
         $formats = ['d.m.Y', 'Y-m-d', 'd/m/Y', 'd-m-Y'];
 
         foreach ($formats as $format) {
-            $parsed = \Carbon\Carbon::createFromFormat($format, $date);
-            if ($parsed) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $date);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            // createFromFormat je popustljiv (npr. "31.02.2024"), pa se rezultat
+            // proverava povratnim formatiranjem.
+            if ($parsed && $parsed->format($format) === $date) {
                 return $parsed->format('Y-m-d');
             }
         }
@@ -149,7 +241,7 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
 
     private function findOrCreateSprema(string $naziv): int
     {
-        return \App\Models\Sprema::firstOrCreate(
+        return Sprema::firstOrCreate(
             ['naziv' => trim($naziv)],
             ['aktivno' => true, 'redosled' => 0]
         )->id;
@@ -157,7 +249,7 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
 
     private function findOrCreateZvanje(string $naziv): int
     {
-        return \App\Models\Zvanje::firstOrCreate(
+        return Zvanje::firstOrCreate(
             ['naziv' => trim($naziv)],
             ['aktivno' => true, 'redosled' => 0]
         )->id;
@@ -165,7 +257,7 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
 
     private function findOrCreateOdeljenje(string $naziv): int
     {
-        return \App\Models\Odeljenje::firstOrCreate(
+        return Odeljenje::firstOrCreate(
             ['naziv' => trim($naziv)],
             ['aktivno' => true, 'redosled' => 0]
         )->id;
@@ -173,7 +265,8 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
 
     private function findKategorija(string $naziv): ?int
     {
-        $kategorija = \App\Models\ClanarinaKategorija::where('naziv', 'like', trim($naziv))->first();
+        $kategorija = ClanarinaKategorija::where('naziv', 'like', trim($naziv))->first();
+
         return $kategorija?->id;
     }
 
@@ -183,14 +276,14 @@ class ClanImport implements ToCollection, WithHeadingRow, WithValidation, WithBa
         $datumIsteka = $this->parseDate($row['licenca_datum_isteka'] ?? null);
 
         // Automatski računaj datum isteka ako nije definisan (+7 godina)
-        if ($datumIzdavanja && !$datumIsteka) {
-            $datumIsteka = \Carbon\Carbon::parse($datumIzdavanja)->addYears(7)->format('Y-m-d');
+        if ($datumIzdavanja && ! $datumIsteka) {
+            $datumIsteka = Carbon::parse($datumIzdavanja)->addYears(7)->format('Y-m-d');
         }
 
         // Odredi status licence
         $status = 'vazeca';
         if ($datumIsteka) {
-            $istek = \Carbon\Carbon::parse($datumIsteka);
+            $istek = Carbon::parse($datumIsteka);
             if ($istek->isPast()) {
                 $status = 'istekla';
             } elseif ($istek->diffInDays(now()) <= 60) {
