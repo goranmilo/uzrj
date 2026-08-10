@@ -11,7 +11,7 @@ strukovnog udruženja zdravstvenih radnika Republike Srbije.
 ## Status
 
 - **Faza:** Faza 1 — MVP (u razvoju)
-- **Stek:** Laravel 11 · PHP 8.3 · Filament 3 · PostgreSQL 16 · Fortify (2FA)
+- **Stek:** Laravel 13 · PHP 8.3 · Filament 3 · PostgreSQL 16 · Fortify (2FA)
 - **Detaljna specifikacija:** vidi
   [`Plan_aplikacije_udruzenje_zdravstvenih_radnika.md`](./Plan_aplikacije_udruzenje_zdravstvenih_radnika.md)
 
@@ -65,6 +65,16 @@ npm run build
 
 # Pokretanje razvojnog servera
 php artisan serve
+```
+
+### Testovi
+
+Testovi koriste zasebnu PostgreSQL bazu (`uzrj_test`), jer PDO sqlite ekstenzija
+nije deo preduslova. Baza se kreira jednom:
+
+```bash
+createdb -h 127.0.0.1 -U uzrj uzrj_test
+php artisan test
 ```
 
 ### Podrazumevani nalog

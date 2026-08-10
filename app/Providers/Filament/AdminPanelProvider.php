@@ -2,7 +2,8 @@
 
 namespace App\Providers\Filament;
 
-use App\Models\Podesavanje;
+use App\Support\Tema;
+use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -11,7 +12,9 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -24,9 +27,8 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        // Dobijanje boje iz baze
-        $temaKey = Podesavanje::get('tema', 'emerald');
-        $primaryColor = $this->getTemaColor($temaKey);
+        // Boje teme se čuvaju u bazi (tabela `podesavanja`)
+        $tema = Tema::aktuelna();
 
         return $panel
             ->default()
@@ -36,8 +38,10 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('UZRJ — Upravljanje članstvom')
             ->favicon(asset('images/favicon.ico'))
             ->colors([
-                'primary' => $primaryColor,
+                'primary' => Tema::paleta($tema['primary']),
+                'secondary' => Tema::paleta($tema['accent']),
             ])
+            ->defaultThemeMode($tema['dark_mode'] ? ThemeMode::Dark : ThemeMode::Light)
             ->navigationGroups([
                 NavigationGroup::make()
                     ->label('Članstvo')
@@ -60,6 +64,10 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): Htmlable => new HtmlString('<style id="theme-css">'.Tema::css().'</style>'),
+            )
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
@@ -79,44 +87,5 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ])
             ->sidebarCollapsibleOnDesktop();
-    }
-
-    /**
-     * Dobij Filament Color objekat za temu
-     */
-    protected function getTemaColor(string $temaKey): array
-    {
-        // Mapiranje tema na Filament boje
-        $temeBoje = [
-            'emerald' => Color::Emerald,
-            'blue' => Color::Blue,
-            'purple' => Color::Violet,
-            'red' => Color::Red,
-            'orange' => Color::Orange,
-            'teal' => Color::Teal,
-            'pink' => Color::Pink,
-            'dark' => Color::Indigo,
-        ];
-
-        // Provera za custom boju
-        $customPrimary = Podesavanje::get('tema_primary');
-        if ($customPrimary) {
-            // Filament prihvata hex boje kao nijanse
-            return [
-                50 => $customPrimary . '10',
-                100 => $customPrimary . '20',
-                200 => $customPrimary . '30',
-                300 => $customPrimary . '40',
-                400 => $customPrimary . '50',
-                500 => $customPrimary,
-                600 => $customPrimary . '70',
-                700 => $customPrimary . '80',
-                800 => $customPrimary . '90',
-                900 => $customPrimary . '95',
-                950 => $customPrimary . '99',
-            ];
-        }
-
-        return $temeBoje[$temaKey] ?? Color::Emerald;
     }
 }

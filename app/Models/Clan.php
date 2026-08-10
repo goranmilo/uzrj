@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BodoviService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -78,10 +79,15 @@ class Clan extends Model
         return (float) $this->bodovi()->sum('bodovi');
     }
 
-    // Helper: bodovi u tekućoj licencnoj godini
+    // Helper: bodovi u tekućoj licencnoj godini (računa se od datuma izdavanja licence)
     public function getBodoviTekucaGodinaAttribute(): float
     {
-        // TODO: računanje tekuće licencne godine na osnovu datuma licence
-        return (float) $this->bodovi()->whereYear('datum', now()->year)->sum('bodovi');
+        return BodoviService::bodoviTekucaGodina($this);
+    }
+
+    // Helper: licenca merodavna za obračun bodova (najskorije izdata)
+    public function getMerodavnaLicencaAttribute(): ?Licenca
+    {
+        return BodoviService::licenca($this);
     }
 }

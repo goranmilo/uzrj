@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ClanResource\RelationManagers;
 
+use App\Services\BodoviService;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
@@ -29,10 +30,18 @@ class BodoviRelationManager extends RelationManager
                 Forms\Components\TextInput::make('licencna_godina')
                     ->label('Licencna godina')
                     ->numeric()
-                    ->default(now()->year),
+                    ->default(fn (): int => BodoviService::licencnaGodina($this->getOwnerRecord()))
+                    ->disabled()
+                    ->dehydrated()
+                    ->helperText('Računa se iz datuma izdavanja licence člana.'),
                 Forms\Components\DatePicker::make('datum')
                     ->label('Datum')
-                    ->default(now()),
+                    ->default(now())
+                    ->live()
+                    ->afterStateUpdated(fn (Forms\Set $set, Forms\Get $get) => $set(
+                        'licencna_godina',
+                        BodoviService::licencnaGodina($this->getOwnerRecord(), $get('datum') ?: now()),
+                    )),
                 Forms\Components\Textarea::make('razlog')
                     ->label('Razlog')
                     ->rows(2),

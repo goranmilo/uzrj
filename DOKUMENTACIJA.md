@@ -18,8 +18,9 @@
 8. [Tema aplikacije](#8-tema-aplikacije)
 9. [E-mail konfiguracija](#9-e-mail-konfiguracija)
 10. [Plan za Fazu 2](#10-plan-za-fazu-2)
-11. [Poznati problemi](#11-poznati-problemi)
-12. [Git informacije](#12-git-informacije)
+11. [Testovi](#11-testovi)
+12. [Poznati problemi](#12-poznati-problemi)
+13. [Git informacije](#13-git-informacije)
 
 ---
 
@@ -51,7 +52,7 @@
 
 | Komponenta | Tehnologija | Verzija |
 |------------|-------------|---------|
-| Backend | Laravel | 11.x |
+| Backend | Laravel | 13.x |
 | PHP | PHP | 8.3 |
 | Frontend | Livewire + Alpine.js + Tailwind CSS | 3.x |
 | Admin panel | Filament | 3.x |
@@ -175,6 +176,8 @@ uzrj/
 │   │   └── ClanImport.php                     # Import članova iz Excel-a
 │   ├── Mail/
 │   │   └── MesecniIzvestaj.php                # Mailable za mesečni izveštaj
+│   ├── Observers/
+│   │   └── AuditObserver.php                  # Upis izmena u audit_log
 │   ├── Models/
 │   │   ├── Aktuelnost.php
 │   │   ├── AuditLog.php
@@ -196,13 +199,13 @@ uzrj/
 │   ├── Rules/
 │   │   └── Jmbg.php                           # Validacija JMBG-a
 │   ├── Services/
-│   │   ├── BodoviService.php                  # Servis za bodove
+│   │   ├── BodoviService.php                  # Bodovi, licencni period i licencna godina
 │   │   ├── ClanarinaService.php               # Servis za članarine
 │   │   ├── EdukacijaService.php               # Servis za edukacije
-│   │   └── EmailService.php                   # Servis za mejlove
-│   └── View/
-│       └── Components/
-│           └── ThemeCss.php                   # CSS komponenta za temu
+│   │   ├── EmailService.php                   # Servis za mejlove
+│   │   └── LicencaService.php                 # Čuvanje licence, datum isteka i status
+│   └── Support/
+│       └── Tema.php                           # Boje teme (paleta + CSS varijable)
 ├── database/
 │   ├── migrations/                            # 16 migracija
 │   └── seeders/
@@ -217,8 +220,6 @@ uzrj/
 │       └── SifarnikSeeder.php
 ├── resources/
 │   └── views/
-│       ├── components/
-│       │   └── theme-css.blade.php
 │       ├── emails/
 │       │   └── mesecni-izvestaj.blade.php     # Šablon mejla
 │       ├── filament/
@@ -235,11 +236,13 @@ uzrj/
 │       │       ├── aktuelnosti-widget.blade.php
 │       │       └── predstojece-edukacije-widget.blade.php
 │       └── vendor/
-│           └── filament/
-│               └── assets.blade.php           # Modifikovan za temu
-└── routes/
-    ├── console.php                            # Zakazane komande
-    └── web.php                                # Web rute (Excel download)
+│           └── filament/                      # Objavljene Filament komponente
+├── routes/
+│   ├── console.php                            # Zakazane komande
+│   └── web.php                                # Web rute (Excel download)
+└── tests/
+    ├── Feature/                               # Servisi, audit log, forma člana
+    └── Unit/                                  # JMBG validacija, boje teme
 ```
 
 ---
@@ -345,8 +348,31 @@ uzrj/
 - Upozorenja za članove ispod minimuma
 - Ručna korekcija bodova
 
+**Licencna godina (bitno za obračun):**
+
+Licencna godina se računa **od datuma izdavanja licence**, a ne od 1. januara.
+Licenca izdata 15.09.2023. sa periodom od 7 godina znači da tekuća licencna
+godina traje 15.09.2025 — 14.09.2026. Bodovi se ne prenose iz jedne licencne
+godine u drugu, pa se godišnji minimum sabira isključivo unutar tekuće licencne
+godine, a ukupan prag unutar tekućeg licencnog perioda.
+
+Kolona `bodovi.licencna_godina` čuva kalendarsku godinu u kojoj licencna godina
+počinje (u primeru: 2025). Za člana bez upisane licence koristi se kalendarska
+godina. Vrednost se popunjava automatski (polje u formi je samo za prikaz).
+
+Relevantne metode u `BodoviService`:
+
+| Metoda | Vraća |
+|--------|-------|
+| `licenca($clan)` | Merodavnu (najskorije izdatu) licencu |
+| `pocetakLicencnogPerioda($clan, $datum)` | Datum početka tekućeg licencnog perioda |
+| `pocetakLicencneGodine($clan, $datum)` | Datum početka licencne godine |
+| `redniBrojLicencneGodine($clan, $datum)` | Redni broj godine u periodu (1..7) |
+| `licencnaGodina($clan, $datum)` | Oznaka za `bodovi.licencna_godina` |
+
 **Ključne datoteke:**
 - `app/Services/BodoviService.php`
+- `app/Services/LicencaService.php`
 - `app/Filament/Resources/BodResource.php`
 - `app/Filament/Pages/BodoviPregled.php`
 
@@ -417,6 +443,19 @@ uzrj/
 - Filtriranje po akciji, entitetu, korisniku
 - Prikaz pre/posle vrednosti
 
+**Implementacija:**
+
+Upis obavlja `App\Observers\AuditObserver`, registrovan u `AppServiceProvider`
+za modele nabrojane u `AppServiceProvider::AUDITOVANI_MODELI` (član, licenca,
+članarina, period, kategorija, uplata, edukacija, prisustvo, bod, aktuelnost,
+podešavanje, šifarnici, korisnik). Novi model se uključuje u praćenje dodavanjem
+u tu listu.
+
+- `akcija`: `create` / `update` / `delete`; `entitet`: naziv modela (`clan`, `uplata`…)
+- Kod izmene se upisuju samo stvarno promenjena polja (stara i nova vrednost)
+- Osetljivi atributi (lozinka, remember token, 2FA tajna, QR token) se ne upisuju
+- Greška pri upisu se loguje i ne prekida poslovnu operaciju
+
 ---
 
 ## 8. Tema aplikacije
@@ -444,12 +483,19 @@ uzrj/
 
 ### Implementacija:
 - Čuva se u `podesavanja` tabeli (ključevi: tema, tema_primary, tema_primary_dark, tema_accent, tema_dark_mode)
-- CSS se generiše dinamički kroz `ThemeCss` komponentu
-- Filament koristi `AdminPanelProvider` za primenu boje
+- `App\Support\Tema` je jedino mesto koje obrađuje boje: validira hex zapis,
+  generiše Filament paletu nijansi (50–950) i CSS varijable
+- `AdminPanelProvider` registruje paletu kao primarnu boju panela, pa Filament
+  sam boji dugmad, navigaciju, badževe i ostale elemente
+- Tamni režim koristi Filament-ov `ThemeMode::Dark`, ne prepisivanje CSS-a
+- CSS varijable (`--theme-primary`, `--theme-primary-rgb`, `--theme-primary-dark`,
+  `--theme-accent`) ubacuje Filament render hook (`HEAD_END`) unutar panela,
+  a `ApplyTheme` middleware na stranicama van panela
 
 **Ključne datoteke:**
+- `app/Support/Tema.php`
 - `app/Filament/Pages/ThemeSettings.php`
-- `app/View/Components/ThemeCss.php`
+- `app/Http/Middleware/ApplyTheme.php`
 - `app/Providers/Filament/AdminPanelProvider.php`
 
 ---
@@ -523,24 +569,46 @@ Schedule::command('email:upozorenje-bodovi')->monthly();
 
 ---
 
-## 11. Poznati problemi
+## 11. Testovi
 
-### 11.1 Browser kompatibilnost (Livewire/Filament)
+Testovi koriste zasebnu PostgreSQL bazu `uzrj_test` (isti drajver kao produkcija;
+PDO sqlite ekstenzija nije među preduslovima projekta). Baza se kreira jednom:
+
+```bash
+createdb -h 127.0.0.1 -U uzrj uzrj_test
+php artisan test
+```
+
+| Test | Pokriva |
+|------|---------|
+| `tests/Unit/JmbgTest.php` | Validaciju JMBG-a (kontrolna cifra, format, datum) |
+| `tests/Unit/TemaTest.php` | Hex validaciju, paletu nijansi, CSS varijable |
+| `tests/Feature/BodoviServiceTest.php` | Licencni period, licencnu godinu, zbir bodova |
+| `tests/Feature/ClanarinaServiceTest.php` | Pro-rata, dvostruko zaduženje, uplate i statuse |
+| `tests/Feature/LicencaServiceTest.php` | Čuvanje licence, datum isteka, status |
+| `tests/Feature/ClanResourceLicencaTest.php` | Formu člana — unos i izmenu licence |
+| `tests/Feature/AuditLogTest.php` | Upis create/update/delete i filtriranje osetljivih polja |
+
+---
+
+## 12. Poznati problemi
+
+### 12.1 Browser kompatibilnost (Livewire/Filament)
 - **Date picker** za edukacije ne radi u headless browseru (radi u Chrome/Firefox)
 - **Modal za evidentiranje uplate** se ne otvara u headless browseru
 
-### 11.2 Filament keširanje
+### 12.2 Filament keširanje
 - Filament kešira konfiguraciju panela
 - Promena teme zahteva `php artisan filament:cache-components`
-- Ili brisanje keša: `php artisan cache:clear`
+- Ili brisanje keša: `php artisan optimize:clear`
 
-### 11.3 Grafikon boje
+### 12.3 Grafikon boje
 - Grafikon na dashboard-u koristi Filament-ove podrazumevane boje
 - Ne menja se automatski sa temom (zahteva dodatnu konfiguraciju widgeta)
 
 ---
 
-## 12. Git informacije
+## 13. Git informacije
 
 ### Remote repository:
 ```

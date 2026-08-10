@@ -99,14 +99,21 @@ class ClanResource extends Resource
                     ->columns(2),
 
                 Forms\Components\Section::make('Licenca')
+                    ->description('Datum izdavanja licence određuje licencnu godinu po kojoj se sabiraju bodovi.')
                     ->schema([
                         Forms\Components\TextInput::make('licenca.broj')
                             ->label('Broj licence')
-                            ->maxLength(50),
+                            ->maxLength(50)
+                            ->live(onBlur: true)
+                            ->requiredWith('licenca.datum_izdavanja'),
                         Forms\Components\DatePicker::make('licenca.datum_izdavanja')
-                            ->label('Datum izdavanja licence'),
+                            ->label('Datum izdavanja licence')
+                            ->live()
+                            ->requiredWith('licenca.broj'),
                         Forms\Components\DatePicker::make('licenca.datum_isteka')
-                            ->label('Datum isteka licence'),
+                            ->label('Datum isteka licence')
+                            ->afterOrEqual('licenca.datum_izdavanja')
+                            ->helperText('Ako se ne unese, računa se kao datum izdavanja + licencni period.'),
                     ])
                     ->columns(3)
                     ->collapsible(),

@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\Bod;
+use App\Models\Clan;
 use App\Models\Edukacija;
 use App\Models\Prisustvo;
-use App\Models\Podesavanje;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -209,43 +209,18 @@ class EdukacijaService
      */
     protected static function dodeliBodove(int $clanId, Edukacija $edukacija, float $bodovi): void
     {
-        // Računanje licencne godine
-        $licencnaGodina = static::izracunajLicencnuGodinu($clanId);
+        $clan = Clan::with('licence')->findOrFail($clanId);
+        $datum = now();
 
         Bod::create([
             'clan_id' => $clanId,
             'edukacija_id' => $edukacija->id,
             'bodovi' => $bodovi,
-            'licencna_godina' => $licencnaGodina,
-            'datum' => now(),
+            'licencna_godina' => BodoviService::licencnaGodina($clan, $datum),
+            'datum' => $datum,
             'razlog' => 'Prisustvo na edukaciji: ' . $edukacija->naziv,
             'evidentirao' => auth()->id(),
         ]);
-    }
-
-    /**
-     * Izračunaj tekuću licencnu godinu za člana.
-     * 
-     * @param int $clanId
-     * @return int
-     */
-    protected static function izracunajLicencnuGodinu(int $clanId): int
-    {
-        $clan = \App\Models\Clan::with('licence')->findOrFail($clanId);
-        $aktivnaLicenca = $clan->licence->first();
-
-        if (!$aktivnaLicenca || !$aktivnaLicenca->datum_izdavanja) {
-            return now()->year;
-        }
-
-        $datumIzdavanja = $aktivnaLicenca->datum_izdavanja;
-        $licencniPeriod = Podesavanje::get('licencni_period_god', 7);
-        
-        // Računanje u kojoj licencnoj godini je član
-        $godineOdIzdavanja = $datumIzdavanja->diffInYears(now());
-        $licencnaGodina = ($godineOdIzdavanja % $licencniPeriod) + 1;
-
-        return now()->year;
     }
 
     /**

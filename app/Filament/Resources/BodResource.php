@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\BodResource\Pages;
 use App\Models\Bod;
+use App\Services\BodoviService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -29,7 +30,12 @@ class BodResource extends Resource
                     ->relationship('clan', 'ime')
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(fn (Forms\Set $set, Forms\Get $get) => $set(
+                        'licencna_godina',
+                        BodoviService::licencnaGodinaZaClan($get('clan_id'), $get('datum')),
+                    )),
                 Forms\Components\Select::make('edukacija_id')
                     ->label('Edukacija')
                     ->relationship('edukacija', 'naziv')
@@ -45,11 +51,19 @@ class BodResource extends Resource
                     ->label('Licencna godina')
                     ->numeric()
                     ->default(now()->year)
-                    ->required(),
+                    ->required()
+                    ->disabled()
+                    ->dehydrated()
+                    ->helperText('Kalendarska godina u kojoj počinje licencna godina člana — računa se iz datuma izdavanja licence.'),
                 Forms\Components\DatePicker::make('datum')
                     ->label('Datum')
                     ->default(now())
-                    ->required(),
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(fn (Forms\Set $set, Forms\Get $get) => $set(
+                        'licencna_godina',
+                        BodoviService::licencnaGodinaZaClan($get('clan_id'), $get('datum')),
+                    )),
                 Forms\Components\Textarea::make('razlog')
                     ->label('Razlog / Napomena')
                     ->rows(2),
