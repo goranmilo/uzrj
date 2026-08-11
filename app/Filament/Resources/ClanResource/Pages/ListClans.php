@@ -119,7 +119,13 @@ class ListClans extends ListRecords
     {
         $stavke = collect($errors)
             ->take($prikazi)
-            ->map(fn (array $greska): string => "Red {$greska['row']} (JMBG {$greska['jmbg']}): {$greska['error']}")
+            ->map(function (array $greska): string {
+                $oznaka = filled($greska['row'] ?? null)
+                    ? "Red {$greska['row']}"
+                    : "JMBG {$greska['jmbg']}";
+
+                return "{$oznaka}: {$greska['error']}";
+            })
             ->implode(' ');
 
         $preostalo = count($errors) - min($prikazi, count($errors));

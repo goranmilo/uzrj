@@ -311,6 +311,9 @@ uzrj/
 - JMBG se proverava isto kao u formi za unos (kontrolna cifra). Red koji ne
   prođe validaciju se preskače, ostali se uvoze, a razlog se prikazuje u
   notifikaciji i upisuje u log
+- Prazni redovi (npr. na kraju tabele) se preskaču bez prijave greške
+- Ako je kolona `prezime` prazna, a u koloni `ime` stoji puno ime, poslednja
+  reč se uzima kao prezime
 - Postojeći član se prepoznaje po JMBG-u i ažurira
 
 **Ključne datoteke:**

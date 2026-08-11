@@ -142,6 +142,55 @@ class ClanImportTest extends TestCase
         $this->assertStringContainsString('JMBG nije ispravan', $greske[0]['error']);
     }
 
+    public function test_uvozi_i_licencu_iz_reda(): void
+    {
+        $putanja = $this->csv(<<<'CSV'
+        ime,prezime,jmbg,licenca_broj,licenca_datum_izdavanja
+        Ana,Anić,0101990500011,L-123,10.05.2024
+        CSV);
+
+        $import = new ClanImport;
+        Excel::import($import, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame(1, $import->getImportedCount());
+        $this->assertSame([], $import->getErrors());
+        $this->assertDatabaseHas('licence', [
+            'broj' => 'L-123',
+            'datum_izdavanja' => '2024-05-10',
+            'datum_isteka' => '2031-05-10',
+        ]);
+    }
+
+    public function test_prazni_redovi_na_kraju_tabele_se_preskacu(): void
+    {
+        $putanja = $this->csv(
+            "ime,prezime,jmbg\nAna,Anić,0101990500011\n,,\n,,\n,,\n"
+        );
+
+        $import = new ClanImport;
+        Excel::import($import, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame(1, $import->getImportedCount());
+        $this->assertSame(0, $import->getSkippedCount());
+        $this->assertSame([], $import->getErrors());
+    }
+
+    public function test_puno_ime_u_koloni_ime_se_deli_na_ime_i_prezime(): void
+    {
+        $putanja = $this->csv(<<<'CSV'
+        ime,prezime,jmbg
+        Ana Anić,,0101990500011
+        Ana Marija Perić,,1503857800120
+        CSV);
+
+        $import = new ClanImport;
+        Excel::import($import, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame(2, $import->getImportedCount());
+        $this->assertDatabaseHas('clanovi', ['ime' => 'Ana', 'prezime' => 'Anić']);
+        $this->assertDatabaseHas('clanovi', ['ime' => 'Ana Marija', 'prezime' => 'Perić']);
+    }
+
     public function test_ponovni_uvoz_azurira_postojeceg_clana_po_jmbg(): void
     {
         $putanja = $this->csv(<<<'CSV'

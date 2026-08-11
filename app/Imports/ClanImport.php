@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
@@ -22,7 +23,7 @@ use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Validators\Failure;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 
-class ClanImport implements SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
+class ClanImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $importedCount = 0;
 
@@ -33,6 +34,8 @@ class ClanImport implements SkipsOnFailure, ToCollection, WithBatchInserts, With
     public function collection(Collection $rows)
     {
         foreach ($rows as $row) {
+            $row = $this->normalizuj($row);
+
             try {
                 DB::beginTransaction();
 
@@ -80,11 +83,11 @@ class ClanImport implements SkipsOnFailure, ToCollection, WithBatchInserts, With
                 DB::commit();
                 $this->importedCount++;
 
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 DB::rollBack();
                 $this->skippedCount++;
                 $this->errors[] = [
-                    'row' => $row->keys()->first() ?? 'N/A',
+                    'row' => null,
                     'jmbg' => $row['jmbg'] ?? 'N/A',
                     'error' => $e->getMessage(),
                 ];
@@ -140,25 +143,56 @@ class ClanImport implements SkipsOnFailure, ToCollection, WithBatchInserts, With
     }
 
     /**
-     * Excel numeričke ćelije stižu kao brojevi (JMBG bez vodeće nule, telefon
-     * bez nule na početku), pa se pre validacije vraćaju u tekstualni oblik.
-     *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     public function prepareForValidation($data, $index)
     {
-        if (filled($data['jmbg'] ?? null)) {
-            $data['jmbg'] = $this->formatJmbg((string) $data['jmbg']);
-        }
+        return $this->normalizuj($data);
+    }
 
-        foreach (['telefon', 'okg', 'clanski_broj', 'licenca_broj'] as $polje) {
-            if (isset($data[$polje]) && is_numeric($data[$polje])) {
-                $data[$polje] = (string) $data[$polje];
+    /**
+     * Dovedi red iz tabele u oblik koji očekuju validacija i upis.
+     *
+     * - numeričke ćelije (JMBG, telefon, brojevi) Excel vraća kao brojeve, pa se
+     *   vraćaju u tekst; JMBG dobija vodeću nulu
+     * - ako je prezime prazno, a u koloni „ime" stoji puno ime, poslednja reč se
+     *   uzima kao prezime
+     *
+     * @param  array<string, mixed>|Collection  $row
+     * @return array<string, mixed>
+     */
+    protected function normalizuj(array|Collection $row): array
+    {
+        $row = $row instanceof Collection ? $row->toArray() : $row;
+
+        foreach ($row as $kljuc => $vrednost) {
+            if (is_string($vrednost)) {
+                $vrednost = trim($vrednost);
+                $row[$kljuc] = $vrednost === '' ? null : $vrednost;
             }
         }
 
-        return $data;
+        foreach (['jmbg', 'telefon', 'okg', 'clanski_broj', 'licenca_broj'] as $polje) {
+            if (isset($row[$polje]) && is_numeric($row[$polje])) {
+                $row[$polje] = (string) $row[$polje];
+            }
+        }
+
+        if (filled($row['jmbg'] ?? null)) {
+            $row['jmbg'] = $this->formatJmbg((string) $row['jmbg']);
+        }
+
+        if (blank($row['prezime'] ?? null) && filled($row['ime'] ?? null)) {
+            $delovi = preg_split('/\s+/', trim((string) $row['ime']));
+
+            if (count($delovi) > 1) {
+                $row['prezime'] = array_pop($delovi);
+                $row['ime'] = implode(' ', $delovi);
+            }
+        }
+
+        return $row;
     }
 
     public function batchSize(): int
