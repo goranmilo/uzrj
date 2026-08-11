@@ -304,8 +304,13 @@ uzrj/
   `licenca_datum_isteka`) — šablon se preuzima dugmetom „Preuzmi šablon"
 - Poslati fajl se ne čuva na disku; obrađuje se kao privremeni upload, jer
   sadrži lične podatke
-- Datumi se prihvataju u zapisima `d.m.Y`, `Y-m-d`, `d/m/Y`, `d-m-Y`, kao i u
+- Datumi se prihvataju u zapisima `d.m.Y`, `Y-m-d`, `d/m/Y`, `d-m-Y`, sa tačkom
+  na kraju („15.12.2029.") i jednocifrenim danom/mesecom („7.4.1992."), kao i u
   Excel-ovom numeričkom zapisu; neprepoznat datum ostaje prazan i ne obara red
+- Ćelija sa samo godinom („2022.") se tumači kao 1. januar te godine
+- Ako je za licencu poznat samo datum isteka, datum izdavanja se izvodi unazad
+  za dužinu licencnog perioda; ako nema nijednog datuma, licenca se ne upisuje,
+  ali se član uvozi (razlog ide u log)
 - Numeričke ćelije (JMBG, telefon, članski broj) se vraćaju u tekst sa vodećom
   nulom pre validacije
 - JMBG se proverava isto kao u formi za unos (kontrolna cifra). Red koji ne

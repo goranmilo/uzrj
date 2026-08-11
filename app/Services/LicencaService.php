@@ -35,6 +35,14 @@ class LicencaService
             ? Carbon::parse($datumIzdavanja)->startOfDay()
             : $licenca?->datum_izdavanja?->copy();
 
+        // Ako je poznat samo datum isteka (čest slučaj pri uvozu), datum
+        // izdavanja se izvodi unazad za dužinu licencnog perioda.
+        if (! $datumIzdavanja && filled($datumIsteka)) {
+            $datumIzdavanja = Carbon::parse($datumIsteka)
+                ->startOfDay()
+                ->subYears(max(1, (int) Podesavanje::get('licencni_period_god', 7)));
+        }
+
         if (! $datumIzdavanja) {
             return null;
         }

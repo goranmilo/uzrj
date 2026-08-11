@@ -4,11 +4,11 @@ namespace App\Imports;
 
 use App\Models\Clan;
 use App\Models\ClanarinaKategorija;
-use App\Models\Licenca;
 use App\Models\Odeljenje;
 use App\Models\Sprema;
 use App\Models\Zvanje;
 use App\Rules\Jmbg;
+use App\Services\LicencaService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -238,23 +238,40 @@ class ClanImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithBa
             return Carbon::instance($date)->format('Y-m-d');
         }
 
-        // Excel čuva datume kao redni broj dana od 1900. godine.
         if (is_numeric($date)) {
-            try {
-                return Carbon::instance(
-                    Date::excelToDateTimeObject((float) $date)
-                )->format('Y-m-d');
-            } catch (\Throwable) {
-                return null;
+            $broj = (float) $date;
+
+            // Excel čuva datume kao redni broj dana od 1900. godine. Opseg
+            // 3000–60000 pokriva 1908–2064; van njega je verovatnije da je u
+            // ćeliji upisana samo godina (npr. 2022), a ne redni broj dana.
+            if ($broj >= 3000 && $broj <= 60000) {
+                try {
+                    return Carbon::instance(
+                        Date::excelToDateTimeObject($broj)
+                    )->format('Y-m-d');
+                } catch (\Throwable) {
+                    return null;
+                }
             }
+
+            return $this->godinaKaoDatum((int) $broj);
         }
 
-        $date = trim((string) $date);
+        // Srpski zapis datuma često ima tačku i na kraju („15.12.2029.").
+        $date = rtrim(preg_replace('/\s+/', '', (string) $date), '.');
+
+        if ($date === '') {
+            return null;
+        }
+
+        if (preg_match('/^\d{4}$/', $date)) {
+            return $this->godinaKaoDatum((int) $date);
+        }
 
         // Pokušaj različite formate. Carbon baca izuzetak kad format ne odgovara,
         // pa se svaki pokušaj mora izolovati — inače prvi neodgovarajući format
         // obara ceo red.
-        $formats = ['d.m.Y', 'Y-m-d', 'd/m/Y', 'd-m-Y'];
+        $formats = ['d.m.Y', 'j.n.Y', 'Y-m-d', 'd/m/Y', 'j/n/Y', 'd-m-Y', 'j-n-Y', 'Y.m.d'];
 
         foreach ($formats as $format) {
             try {
@@ -263,7 +280,7 @@ class ClanImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithBa
                 continue;
             }
 
-            // createFromFormat je popustljiv (npr. "31.02.2024"), pa se rezultat
+            // createFromFormat je popustljiv (npr. „31.02.2024"), pa se rezultat
             // proverava povratnim formatiranjem.
             if ($parsed && $parsed->format($format) === $date) {
                 return $parsed->format('Y-m-d');
@@ -271,6 +288,18 @@ class ClanImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithBa
         }
 
         return null;
+    }
+
+    /**
+     * Ćelija sa samo godinom („2022.") se tumači kao 1. januar te godine.
+     */
+    private function godinaKaoDatum(int $godina): ?string
+    {
+        if ($godina < 1900 || $godina > 2100) {
+            return null;
+        }
+
+        return sprintf('%04d-01-01', $godina);
     }
 
     private function findOrCreateSprema(string $naziv): int
@@ -304,36 +333,26 @@ class ClanImport implements SkipsEmptyRows, SkipsOnFailure, ToCollection, WithBa
         return $kategorija?->id;
     }
 
+    /**
+     * Upis licence ide kroz LicencaService, isto kao unos kroz formu člana
+     * (izračunavanje datuma i statusa je na jednom mestu).
+     *
+     * @param  array<string, mixed>  $row
+     */
     private function createOrUpdateLicenca(Clan $clan, array $row): void
     {
-        $datumIzdavanja = $this->parseDate($row['licenca_datum_izdavanja'] ?? null);
-        $datumIsteka = $this->parseDate($row['licenca_datum_isteka'] ?? null);
+        $licenca = LicencaService::sacuvaj($clan, [
+            'broj' => $row['licenca_broj'] ?? null,
+            'datum_izdavanja' => $this->parseDate($row['licenca_datum_izdavanja'] ?? null),
+            'datum_isteka' => $this->parseDate($row['licenca_datum_isteka'] ?? null),
+        ]);
 
-        // Automatski računaj datum isteka ako nije definisan (+7 godina)
-        if ($datumIzdavanja && ! $datumIsteka) {
-            $datumIsteka = Carbon::parse($datumIzdavanja)->addYears(7)->format('Y-m-d');
+        if (! $licenca) {
+            Log::warning('Licenca nije upisana — nema upotrebljivog datuma', [
+                'jmbg' => $row['jmbg'] ?? null,
+                'licenca_broj' => $row['licenca_broj'] ?? null,
+            ]);
         }
-
-        // Odredi status licence
-        $status = 'vazeca';
-        if ($datumIsteka) {
-            $istek = Carbon::parse($datumIsteka);
-            if ($istek->isPast()) {
-                $status = 'istekla';
-            } elseif ($istek->diffInDays(now()) <= 60) {
-                $status = 'istice';
-            }
-        }
-
-        Licenca::updateOrCreate(
-            ['clan_id' => $clan->id],
-            [
-                'broj' => $row['licenca_broj'],
-                'datum_izdavanja' => $datumIzdavanja,
-                'datum_isteka' => $datumIsteka,
-                'status' => $status,
-            ]
-        );
     }
 
     // Getter za rezultate importa

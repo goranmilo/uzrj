@@ -161,6 +161,69 @@ class ClanImportTest extends TestCase
         ]);
     }
 
+    public function test_datum_sa_tackom_na_kraju_i_jednocifreni_dan(): void
+    {
+        $putanja = $this->csv(<<<'CSV'
+        ime,prezime,jmbg,datum_uclanjenja
+        Ana,Anić,0101990500011,15.12.2029.
+        Marko,Marković,1503857800120,7.4.1992.
+        CSV);
+
+        $import = new ClanImport;
+        Excel::import($import, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame(2, $import->getImportedCount());
+        $this->assertDatabaseHas('clanovi', ['jmbg' => '0101990500011', 'datum_uclanjenja' => '2029-12-15']);
+        $this->assertDatabaseHas('clanovi', ['jmbg' => '1503857800120', 'datum_uclanjenja' => '1992-04-07']);
+    }
+
+    public function test_celija_sa_samo_godinom_se_tumaci_kao_prvi_januar(): void
+    {
+        $putanja = $this->csv(<<<'CSV'
+        ime,prezime,jmbg,datum_uclanjenja
+        Ana,Anić,0101990500011,2022.
+        CSV);
+
+        Excel::import(new ClanImport, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame('2022-01-01', Clan::firstOrFail()->datum_uclanjenja);
+    }
+
+    public function test_licenca_bez_datuma_izdavanja_se_izvodi_iz_datuma_isteka(): void
+    {
+        $putanja = $this->csv(<<<'CSV'
+        ime,prezime,jmbg,licenca_broj,licenca_datum_izdavanja,licenca_datum_isteka
+        Ana,Anić,0101990500011,015114/2022,,15.12.2029.
+        CSV);
+
+        $import = new ClanImport;
+        Excel::import($import, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame(1, $import->getImportedCount());
+        $this->assertSame([], $import->getErrors());
+        $this->assertDatabaseHas('licence', [
+            'broj' => '015114/2022',
+            'datum_izdavanja' => '2022-12-15',
+            'datum_isteka' => '2029-12-15',
+        ]);
+    }
+
+    public function test_licenca_bez_ijednog_datuma_ne_obara_uvoz_clana(): void
+    {
+        $putanja = $this->csv(<<<'CSV'
+        ime,prezime,jmbg,licenca_broj
+        Ana,Anić,0101990500011,015114/2022
+        CSV);
+
+        $import = new ClanImport;
+        Excel::import($import, $putanja, null, ExcelFormat::CSV);
+
+        $this->assertSame(1, $import->getImportedCount());
+        $this->assertSame(0, $import->getSkippedCount());
+        $this->assertDatabaseCount('clanovi', 1);
+        $this->assertDatabaseCount('licence', 0);
+    }
+
     public function test_prazni_redovi_na_kraju_tabele_se_preskacu(): void
     {
         $putanja = $this->csv(
