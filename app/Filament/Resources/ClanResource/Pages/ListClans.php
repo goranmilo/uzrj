@@ -8,7 +8,6 @@ use Filament\Actions;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Tables;
 use Illuminate\Support\Facades\Log;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Maatwebsite\Excel\Excel as ExcelFormat;
@@ -146,14 +145,5 @@ class ListClans extends ListRecords
             'xls' => ExcelFormat::XLS,
             default => ExcelFormat::XLSX,
         };
-    }
-
-    protected function getTableActions(): array
-    {
-        return [
-            Tables\Actions\ViewAction::make(),
-            Tables\Actions\EditAction::make(),
-            Tables\Actions\DeleteAction::make(),
-        ];
     }
 }

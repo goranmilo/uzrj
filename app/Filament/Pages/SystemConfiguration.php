@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\ClanResource;
 use App\Models\Podesavanje;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -16,9 +17,13 @@ class SystemConfiguration extends Page implements HasForms
     use InteractsWithForms;
 
     protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
+
     protected static ?string $navigationGroup = 'Administracija';
+
     protected static ?string $navigationLabel = 'Konfiguracija sistema';
+
     protected static ?string $title = 'Konfiguracija sistema';
+
     protected static ?int $navigationSort = 19;
 
     protected static string $view = 'filament.pages.system-configuration';
@@ -39,7 +44,19 @@ class SystemConfiguration extends Page implements HasForms
             'adresa_udruzenja' => Podesavanje::get('adresa_udruzenja', ''),
             'email_udruzenja' => Podesavanje::get('email_udruzenja', ''),
             'telefon_udruzenja' => Podesavanje::get('telefon_udruzenja', ''),
+            'clanovi_kolone' => ClanResource::izabraneKolone(),
         ]);
+    }
+
+    /**
+     * Polja se vezuju za `$data`; bez toga Livewire nema svojstvo za vezivanje
+     * (klasa nema public property po ključu podešavanja).
+     */
+    public function form(Form $form): Form
+    {
+        return $form
+            ->schema($this->getFormSchema())
+            ->statePath('data');
     }
 
     public function getFormSchema(): array
@@ -86,6 +103,23 @@ class SystemConfiguration extends Page implements HasForms
                 ])
                 ->columns(2),
 
+            Forms\Components\Section::make('Prikaz liste članova')
+                ->description('Kolone koje se prikazuju na stranici Članstvo → Članovi.')
+                ->schema([
+                    Forms\Components\CheckboxList::make('clanovi_kolone')
+                        ->label('Kolone')
+                        ->options(
+                            collect(ClanResource::dostupneKolone())
+                                ->map(fn (array $kolona): string => $kolona['label'])
+                                ->all()
+                        )
+                        ->columns(3)
+                        ->bulkToggleable()
+                        ->minItems(1)
+                        ->required()
+                        ->helperText('Redosled kolona je fiksan; prikazuju se samo označene.'),
+                ]),
+
             Forms\Components\Section::make('Podaci o udruženju')
                 ->schema([
                     Forms\Components\TextInput::make('naziv_udruzenja')
@@ -115,9 +149,10 @@ class SystemConfiguration extends Page implements HasForms
 
         // Čuvanje svih podešavanja
         foreach ($data as $kljuc => $vrednost) {
-            $tip = match($kljuc) {
+            $tip = match ($kljuc) {
                 'godisnji_prag_bodova', 'ukupan_prag_bodova', 'licencni_period_god', 'dani_pre_isteka_upozorenje' => 'integer',
                 'pro_rata_racunanje' => 'boolean',
+                'clanovi_kolone' => 'json',
                 default => 'string',
             };
 

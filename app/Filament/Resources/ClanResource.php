@@ -5,21 +5,29 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ClanResource\Pages;
 use App\Filament\Resources\ClanResource\RelationManagers;
 use App\Models\Clan;
+use App\Models\Podesavanje;
+use App\Rules\Jmbg;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Builder;
 
 class ClanResource extends Resource
 {
     protected static ?string $model = Clan::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
+
     protected static ?string $navigationGroup = 'Članstvo';
+
     protected static ?string $navigationLabel = 'Članovi';
+
     protected static ?string $modelLabel = 'član';
+
     protected static ?string $pluralModelLabel = 'članovi';
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -40,7 +48,7 @@ class ClanResource extends Resource
                             ->unique(ignoreRecord: true)
                             ->length(13)
                             ->numeric()
-                            ->rule(new \App\Rules\Jmbg()),
+                            ->rule(new Jmbg),
                         Forms\Components\TextInput::make('email')
                             ->email()
                             ->unique(ignoreRecord: true)
@@ -120,41 +128,169 @@ class ClanResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
+    /**
+     * Kolone koje se mogu prikazati na listi članova.
+     *
+     * Izbor se čuva u podešavanju `clanovi_kolone`
+     * (Administracija → Konfiguracija sistema).
+     *
+     * @return array<string, array{label: string, kolona: \Closure}>
+     */
+    public static function dostupneKolone(): array
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('clanski_broj')
+        return [
+            'clanski_broj' => [
+                'label' => 'Br. karte',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clanski_broj')
                     ->label('Br. karte')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('ime')
+            ],
+            'ime' => [
+                'label' => 'Ime',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('ime')
+                    ->label('Ime')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('prezime')
+            ],
+            'prezime' => [
+                'label' => 'Prezime',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('prezime')
+                    ->label('Prezime')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('jmbg')
+            ],
+            'jmbg' => [
+                'label' => 'JMBG',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('jmbg')
                     ->label('JMBG')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('zvanje.naziv')
+            ],
+            'okg' => [
+                'label' => 'Broj komore (OKG)',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('okg')
+                    ->label('Broj komore')
+                    ->searchable(),
+            ],
+            'email' => [
+                'label' => 'E-mail',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('email')
+                    ->label('E-mail')
+                    ->searchable()
+                    ->copyable(),
+            ],
+            'telefon' => [
+                'label' => 'Telefon',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('telefon')
+                    ->label('Telefon')
+                    ->searchable(),
+            ],
+            'sprema' => [
+                'label' => 'Stručna sprema',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('sprem.naziv')
+                    ->label('Sprema')
+                    ->sortable(),
+            ],
+            'zvanje' => [
+                'label' => 'Zvanje',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('zvanje.naziv')
                     ->label('Zvanje')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('kategorijaClanarine.naziv')
+            ],
+            'odeljenje' => [
+                'label' => 'Odeljenje',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('odeljenje.naziv')
+                    ->label('Odeljenje')
+                    ->sortable(),
+            ],
+            'kategorija_clanarine' => [
+                'label' => 'Kategorija članarine',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('kategorijaClanarine.naziv')
                     ->label('Kategorija')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('status')
+            ],
+            'status' => [
+                'label' => 'Status',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn (?string $state): string => match ($state) {
                         'aktivan' => 'success',
-                        'neaktivan' => 'gray',
                         'suspendovan' => 'danger',
+                        default => 'gray',
                     }),
-                Tables\Columns\TextColumn::make('datum_uclanjenja')
+            ],
+            'datum_uclanjenja' => [
+                'label' => 'Datum učlanjenja',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('datum_uclanjenja')
                     ->label('Učlanjen')
                     ->date('d.m.Y')
                     ->sortable(),
-            ])
+            ],
+            'licenca_broj' => [
+                'label' => 'Broj licence',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('licenca_broj')
+                    ->label('Br. licence')
+                    ->state(fn (Clan $record): ?string => $record->merodavna_licenca?->broj),
+            ],
+            'licenca_datum_isteka' => [
+                'label' => 'Istek licence',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('licenca_datum_isteka')
+                    ->label('Licenca ističe')
+                    ->state(fn (Clan $record): ?string => $record->merodavna_licenca?->datum_isteka?->format('d.m.Y')),
+            ],
+        ];
+    }
+
+    /**
+     * Kolone koje se prikazuju ako podešavanje nije zadato.
+     *
+     * @return list<string>
+     */
+    public static function podrazumevaneKolone(): array
+    {
+        return [
+            'clanski_broj', 'ime', 'prezime', 'jmbg',
+            'zvanje', 'kategorija_clanarine', 'status', 'datum_uclanjenja',
+        ];
+    }
+
+    /**
+     * Izabrane kolone iz podešavanja, u redosledu iz kataloga.
+     *
+     * @return list<string>
+     */
+    public static function izabraneKolone(): array
+    {
+        $izabrane = Podesavanje::get('clanovi_kolone');
+
+        if (! is_array($izabrane) || $izabrane === []) {
+            $izabrane = static::podrazumevaneKolone();
+        }
+
+        $poredak = array_keys(static::dostupneKolone());
+
+        return array_values(array_intersect($poredak, $izabrane));
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        // Kolone sa podacima iz veza (uključujući licencu) se učitavaju unapred.
+        return parent::getEloquentQuery()->with([
+            'sprem', 'zvanje', 'odeljenje', 'kategorijaClanarine', 'licence',
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        $katalog = static::dostupneKolone();
+
+        return $table
+            ->columns(
+                collect(static::izabraneKolone())
+                    ->map(fn (string $kljuc) => ($katalog[$kljuc]['kolona'])())
+                    ->all()
+            )
             ->filters([
                 Tables\Filters\SelectFilter::make('odeljenje_id')
                     ->label('Odeljenje')
@@ -172,15 +308,12 @@ class ClanResource extends Resource
                     ->searchable()
                     ->preload(),
             ])
+            // Brisanje člana je namerno dostupno samo na stranici za izmenu.
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->bulkActions([]);
     }
 
     public static function getRelations(): array

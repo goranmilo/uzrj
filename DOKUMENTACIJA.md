@@ -294,6 +294,8 @@ uzrj/
 - Excel import/export
 - Pretraga i filteri (odeljenje, zvanje, sprema)
 - Pregled člana sa edukacijama i bodovima
+- Izbor kolona na listi članova (Administracija → Konfiguracija sistema)
+- Brisanje člana je dostupno samo na stranici za izmenu člana, ne i na listi
 
 **Uvoz iz Excel-a (Članovi → Import iz Excel-a):**
 
@@ -460,6 +462,10 @@ Relevantne metode u `BodoviService`:
 **Podešavanja:**
 - Bodovni sistem (godišnji prag, ukupan prag, licencni period)
 - Članarina (vrsta naplate, pro-rata)
+- Prikaz liste članova — izbor kolona koje se prikazuju na stranici Članovi
+  (ključ `clanovi_kolone`, tip `json`). Katalog dostupnih kolona definisan je u
+  `ClanResource::dostupneKolone()`; redosled je fiksan, prikazuju se samo
+  označene kolone, a ako podešavanje nije zadato važi `ClanResource::podrazumevaneKolone()`
 - Podaci o udruženju (naziv, matični broj, adresa, kontakt)
 
 ### 7.4 Audit log
@@ -616,6 +622,7 @@ php artisan test
 | `tests/Feature/ClanResourceLicencaTest.php` | Formu člana — unos i izmenu licence |
 | `tests/Feature/ClanImportTest.php` | Uvoz iz CSV/XLSX — formati datuma, numerički JMBG |
 | `tests/Feature/ClanImportActionTest.php` | Akciju „Import iz Excel-a" u panelu |
+| `tests/Feature/ClanListaKoloneTest.php` | Izbor kolona na listi i mesto akcije brisanja |
 | `tests/Feature/AuditLogTest.php` | Upis create/update/delete i filtriranje osetljivih polja |
 
 ---
