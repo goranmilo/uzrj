@@ -37,13 +37,20 @@ U `/etc/ssh/sshd_config` postavi `PasswordAuthentication no` i
 `PermitRootLogin no`, pa `systemctl restart ssh`.
 
 ```bash
-apt update && apt install -y fail2ban unattended-upgrades && ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
+apt update && apt install -y fail2ban unattended-upgrades && ufw allow OpenSSH && ufw enable
 ```
 
 ## 3. Paketi
 
 ```bash
 apt update && apt install -y nginx postgresql-16 php8.3-fpm php8.3-pgsql php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-gd php8.3-intl git unzip composer
+```
+
+Nginx registruje svoj `ufw` profil tek pri instalaciji, pa se pravilo za portove
+80/443 dodaje sad, ne u prethodnom koraku:
+
+```bash
+ufw allow 'Nginx Full'
 ```
 
 U `/etc/php/8.3/fpm/php.ini` podigni limite za uvoz članova iz Excel-a:
