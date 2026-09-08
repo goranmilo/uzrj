@@ -37,7 +37,7 @@ U `/etc/ssh/sshd_config` postavi `PasswordAuthentication no` i
 `PermitRootLogin no`, pa `systemctl restart ssh`.
 
 ```bash
-apt install -y fail2ban unattended-upgrades && ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
+apt update && apt install -y fail2ban unattended-upgrades && ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw enable
 ```
 
 ## 3. Paketi
