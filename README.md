@@ -129,6 +129,11 @@ Glavne tabele:
 | Operater | Operativni rad: unos članova, evidencija uplata, prisustvo, edukacije; bez sistemske konfiguracije |
 | Član | U Fazi 1 NEMA pristup aplikaciji |
 
+## Objavljivanje
+
+Postavljanje na server (Hetzner / Ubuntu 24.04), Nginx konfiguracija, queue
+servis i deploy skripta: [`DEPLOY.md`](./DEPLOY.md).
+
 ## Licenca
 
 Interni projekat — prava određuje naručilac (udruženje).

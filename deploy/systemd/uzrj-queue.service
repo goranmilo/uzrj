@@ -1,0 +1,28 @@
+# Queue worker za UZRJ (QUEUE_CONNECTION=database)
+#
+# Instalacija:
+#   sudo cp deploy/systemd/uzrj-queue.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now uzrj-queue
+#   sudo systemctl status uzrj-queue
+
+[Unit]
+Description=UZRJ queue worker
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=deploy
+Group=www-data
+# Fajlovi koje worker napravi ostaju upisivi i za www-data (Nginx/PHP-FPM).
+UMask=0002
+WorkingDirectory=/var/www/uzrj
+ExecStart=/usr/bin/php /var/www/uzrj/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+Restart=always
+RestartSec=5
+# Zaustavljanje čeka da tekući posao završi.
+KillSignal=SIGTERM
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target
