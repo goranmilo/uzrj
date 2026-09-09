@@ -358,9 +358,13 @@ class ClanResource extends Resource
                     ->preload(),
             ])
             // Brisanje člana je namerno dostupno samo na stranici za izmenu.
+            // Grupisano u jedno dugme (⋮) — dva odvojena dugmeta sa natpisom
+            // (View/Edit) se nisu uklapala pored Ime/Prezime/JMBG na uskom ekranu.
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ActionGroup::make([
+                    Tables\Actions\ViewAction::make(),
+                    Tables\Actions\EditAction::make(),
+                ]),
             ])
             ->bulkActions([]);
     }
