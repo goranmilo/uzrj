@@ -99,4 +99,25 @@ class ClanListaKoloneTest extends TestCase
         Livewire::test(EditClan::class, ['record' => $this->clan->getRouteKey()])
             ->assertActionExists('delete');
     }
+
+    /**
+     * Ime/prezime/JMBG ostaju vidljivi na uskom ekranu (dovoljno da se
+     * prepozna član bez skrolovanja); ostale kolone se pojavljuju tek od
+     * `lg` širine, gde ima mesta za ceo izabrani skup. Provera ide direktno
+     * na `getVisibleFrom()` jer je `visibleFrom` CSS media-query prekidač —
+     * Livewire test okruženje ne renderuje pravi viewport da bi se to videlo
+     * kroz `assertTableColumnHidden`.
+     */
+    public function test_manje_bitne_kolone_su_skrivene_na_uskom_ekranu(): void
+    {
+        foreach (ClanResource::dostupneKolone() as $kljuc => $definicija) {
+            $vidljivoOd = ($definicija['kolona'])()->getVisibleFrom();
+
+            if (in_array($kljuc, ['ime', 'prezime', 'jmbg'], true)) {
+                $this->assertNull($vidljivoOd, "Kolona '{$kljuc}' bi trebalo da bude uvek vidljiva.");
+            } else {
+                $this->assertSame('lg', $vidljivoOd, "Kolona '{$kljuc}' bi trebalo da se krije ispod 'lg' širine.");
+            }
+        }
+    }
 }

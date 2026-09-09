@@ -129,6 +129,15 @@ class ClanResource extends Resource
     }
 
     /**
+     * Kolone koje ostaju vidljive na uskom (mobilnom) ekranu — dovoljno da se
+     * prepozna član, bez horizontalnog skrolovanja. Ostale kolone se pojavljuju
+     * tek od `lg` širine (~1024px), gde ima mesta za ceo izabrani skup.
+     *
+     * @var list<string>
+     */
+    protected const KOLONE_UVEK_VIDLJIVE = ['ime', 'prezime', 'jmbg'];
+
+    /**
      * Kolone koje se mogu prikazati na listi članova.
      *
      * Izbor se čuva u podešavanju `clanovi_kolone`
@@ -138,13 +147,20 @@ class ClanResource extends Resource
      */
     public static function dostupneKolone(): array
     {
+        $vidljivost = fn (Tables\Columns\TextColumn $kolona, string $kljuc): Tables\Columns\TextColumn => in_array($kljuc, static::KOLONE_UVEK_VIDLJIVE, true)
+            ? $kolona
+            : $kolona->visibleFrom('lg');
+
         return [
             'clanski_broj' => [
                 'label' => 'Br. karte',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('clanski_broj')
-                    ->label('Br. karte')
-                    ->searchable()
-                    ->sortable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('clanski_broj')
+                        ->label('Br. karte')
+                        ->searchable()
+                        ->sortable(),
+                    'clanski_broj',
+                ),
             ],
             'ime' => [
                 'label' => 'Ime',
@@ -168,76 +184,109 @@ class ClanResource extends Resource
             ],
             'okg' => [
                 'label' => 'Broj komore (OKG)',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('okg')
-                    ->label('Broj komore')
-                    ->searchable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('okg')
+                        ->label('Broj komore')
+                        ->searchable(),
+                    'okg',
+                ),
             ],
             'email' => [
                 'label' => 'E-mail',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('email')
-                    ->label('E-mail')
-                    ->searchable()
-                    ->copyable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('email')
+                        ->label('E-mail')
+                        ->searchable()
+                        ->copyable(),
+                    'email',
+                ),
             ],
             'telefon' => [
                 'label' => 'Telefon',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('telefon')
-                    ->label('Telefon')
-                    ->searchable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('telefon')
+                        ->label('Telefon')
+                        ->searchable(),
+                    'telefon',
+                ),
             ],
             'sprema' => [
                 'label' => 'Stručna sprema',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('sprem.naziv')
-                    ->label('Sprema')
-                    ->sortable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('sprem.naziv')
+                        ->label('Sprema')
+                        ->sortable(),
+                    'sprema',
+                ),
             ],
             'zvanje' => [
                 'label' => 'Zvanje',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('zvanje.naziv')
-                    ->label('Zvanje')
-                    ->sortable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('zvanje.naziv')
+                        ->label('Zvanje')
+                        ->sortable(),
+                    'zvanje',
+                ),
             ],
             'odeljenje' => [
                 'label' => 'Odeljenje',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('odeljenje.naziv')
-                    ->label('Odeljenje')
-                    ->sortable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('odeljenje.naziv')
+                        ->label('Odeljenje')
+                        ->sortable(),
+                    'odeljenje',
+                ),
             ],
             'kategorija_clanarine' => [
                 'label' => 'Kategorija članarine',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('kategorijaClanarine.naziv')
-                    ->label('Kategorija')
-                    ->sortable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('kategorijaClanarine.naziv')
+                        ->label('Kategorija')
+                        ->sortable(),
+                    'kategorija_clanarine',
+                ),
             ],
             'status' => [
                 'label' => 'Status',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        'aktivan' => 'success',
-                        'suspendovan' => 'danger',
-                        default => 'gray',
-                    }),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('status')
+                        ->label('Status')
+                        ->badge()
+                        ->color(fn (?string $state): string => match ($state) {
+                            'aktivan' => 'success',
+                            'suspendovan' => 'danger',
+                            default => 'gray',
+                        }),
+                    'status',
+                ),
             ],
             'datum_uclanjenja' => [
                 'label' => 'Datum učlanjenja',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('datum_uclanjenja')
-                    ->label('Učlanjen')
-                    ->date('d.m.Y')
-                    ->sortable(),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('datum_uclanjenja')
+                        ->label('Učlanjen')
+                        ->date('d.m.Y')
+                        ->sortable(),
+                    'datum_uclanjenja',
+                ),
             ],
             'licenca_broj' => [
                 'label' => 'Broj licence',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('licenca_broj')
-                    ->label('Br. licence')
-                    ->state(fn (Clan $record): ?string => $record->merodavna_licenca?->broj),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('licenca_broj')
+                        ->label('Br. licence')
+                        ->state(fn (Clan $record): ?string => $record->merodavna_licenca?->broj),
+                    'licenca_broj',
+                ),
             ],
             'licenca_datum_isteka' => [
                 'label' => 'Istek licence',
-                'kolona' => fn () => Tables\Columns\TextColumn::make('licenca_datum_isteka')
-                    ->label('Licenca ističe')
-                    ->state(fn (Clan $record): ?string => $record->merodavna_licenca?->datum_isteka?->format('d.m.Y')),
+                'kolona' => fn () => $vidljivost(
+                    Tables\Columns\TextColumn::make('licenca_datum_isteka')
+                        ->label('Licenca ističe')
+                        ->state(fn (Clan $record): ?string => $record->merodavna_licenca?->datum_isteka?->format('d.m.Y')),
+                    'licenca_datum_isteka',
+                ),
             ],
         ];
     }
