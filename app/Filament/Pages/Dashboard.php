@@ -14,8 +14,8 @@ use Filament\Widgets\AccountWidget;
 class Dashboard extends BaseDashboard
 {
     protected static ?string $navigationIcon = 'heroicon-o-home';
-    protected static ?string $navigationLabel = 'Dashboard';
-    protected static ?string $title = 'Dashboard';
+    protected static ?string $navigationLabel = 'Kontrolna tabla';
+    protected static ?string $title = 'Kontrolna tabla';
     protected static ?int $navigationSort = -1;
 
     protected function getHeaderWidgets(): array
