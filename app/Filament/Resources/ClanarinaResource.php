@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ImaIzborKolona;
 use App\Filament\Resources\ClanarinaResource\Pages;
 use App\Models\Clanarina;
 use Filament\Forms;
@@ -12,6 +13,8 @@ use Filament\Tables\Table;
 
 class ClanarinaResource extends Resource
 {
+    use ImaIzborKolona;
+
     protected static ?string $model = Clanarina::class;
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationGroup = 'Finansije';
@@ -64,44 +67,107 @@ class ClanarinaResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
+    /**
+     * Kolone koje se mogu prikazati na listi članarina.
+     *
+     * Izbor se čuva u podešavanju `clanarine_kolone`
+     * (Administracija → Konfiguracija sistema).
+     *
+     * @return array<string, array{label: string, kolona: \Closure}>
+     */
+    public static function dostupneKolone(): array
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('clan.ime')
+        return [
+            'clan_clanski_broj' => [
+                'label' => 'Br. karte',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clan.clanski_broj')
+                    ->label('Br. karte')
+                    ->searchable(),
+            ],
+            'clan' => [
+                'label' => 'Član',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clan.ime')
                     ->label('Član')
                     ->formatStateUsing(fn (Clanarina $record): string => $record->clan->ime . ' ' . $record->clan->prezime)
                     ->searchable(['clan.ime', 'clan.prezime'])
                     ->sortable(),
-                Tables\Columns\TextColumn::make('period.naziv')
+            ],
+            'period' => [
+                'label' => 'Period',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('period.naziv')
                     ->label('Period')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('kategorija.naziv')
+            ],
+            'kategorija' => [
+                'label' => 'Kategorija',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('kategorija.naziv')
                     ->label('Kategorija')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('iznos_zaduzenja')
+            ],
+            'iznos_zaduzenja' => [
+                'label' => 'Zaduženo',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('iznos_zaduzenja')
                     ->label('Zaduženo')
                     ->numeric()
                     ->prefix('RSD')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('iznos_placen')
+            ],
+            'iznos_placen' => [
+                'label' => 'Plaćeno',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('iznos_placen')
                     ->label('Plaćeno')
                     ->numeric()
                     ->prefix('RSD')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('dug')
+            ],
+            'dug' => [
+                'label' => 'Dug',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('dug')
                     ->label('Dug')
                     ->getStateUsing(fn (Clanarina $record): float => $record->dug)
                     ->numeric()
                     ->prefix('RSD'),
-                Tables\Columns\TextColumn::make('status')
+            ],
+            'status' => [
+                'label' => 'Status',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'placeno' => 'success',
                         'delimicno' => 'warning',
                         'dug' => 'danger',
                     }),
-            ])
+            ],
+            'created_at' => [
+                'label' => 'Datum zaduženja',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('created_at')
+                    ->label('Datum zaduženja')
+                    ->date('d.m.Y')
+                    ->sortable(),
+            ],
+        ];
+    }
+
+    /**
+     * Kolone koje se prikazuju ako podešavanje nije zadato.
+     *
+     * @return list<string>
+     */
+    public static function podrazumevaneKolone(): array
+    {
+        return ['clan', 'period', 'kategorija', 'iznos_zaduzenja', 'iznos_placen', 'dug', 'status'];
+    }
+
+    public static function kljucPodesavanjaKolona(): string
+    {
+        return 'clanarine_kolone';
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns(static::koloneTabele())
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([

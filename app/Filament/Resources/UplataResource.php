@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ImaIzborKolona;
 use App\Filament\Resources\UplataResource\Pages;
 use App\Models\Uplata;
 use Filament\Forms;
@@ -12,6 +13,8 @@ use Filament\Tables\Table;
 
 class UplataResource extends Resource
 {
+    use ImaIzborKolona;
+
     protected static ?string $model = Uplata::class;
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
     protected static ?string $navigationGroup = 'Finansije';
@@ -88,29 +91,56 @@ class UplataResource extends Resource
             ->columns(2);
     }
 
-    public static function table(Table $table): Table
+    /**
+     * Kolone koje se mogu prikazati na listi uplata.
+     *
+     * Izbor se čuva u podešavanju `uplate_kolone`
+     * (Administracija → Konfiguracija sistema).
+     *
+     * @return array<string, array{label: string, kolona: \Closure}>
+     */
+    public static function dostupneKolone(): array
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('clanarina.clan.ime')
+        return [
+            'clan_clanski_broj' => [
+                'label' => 'Br. karte',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clanarina.clan.clanski_broj')
+                    ->label('Br. karte')
+                    ->searchable(),
+            ],
+            'clan' => [
+                'label' => 'Član',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clanarina.clan.ime')
                     ->label('Član')
-                    ->formatStateUsing(fn (Uplata $record): string => 
+                    ->formatStateUsing(fn (Uplata $record): string =>
                         $record->clanarina->clan->ime . ' ' . $record->clanarina->clan->prezime
                     )
                     ->searchable(['clanarina.clan.ime', 'clanarina.clan.prezime']),
-                Tables\Columns\TextColumn::make('clanarina.period.naziv')
+            ],
+            'period' => [
+                'label' => 'Period',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clanarina.period.naziv')
                     ->label('Period')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('iznos')
+            ],
+            'iznos' => [
+                'label' => 'Iznos',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('iznos')
                     ->label('Iznos')
                     ->numeric()
                     ->prefix('RSD')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('datum')
+            ],
+            'datum' => [
+                'label' => 'Datum',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('datum')
                     ->label('Datum')
                     ->date('d.m.Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('nacin')
+            ],
+            'nacin' => [
+                'label' => 'Način',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('nacin')
                     ->label('Način')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'gotovina' => 'Gotovina',
@@ -120,13 +150,41 @@ class UplataResource extends Resource
                         default => $state,
                     })
                     ->badge(),
-                Tables\Columns\TextColumn::make('referenca')
+            ],
+            'referenca' => [
+                'label' => 'Referenca',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('referenca')
                     ->label('Referenca')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('korisnik.name')
+            ],
+            'evidentirao' => [
+                'label' => 'Evidentirao',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('korisnik.name')
                     ->label('Evidentirao')
                     ->sortable(),
-            ])
+            ],
+        ];
+    }
+
+    /**
+     * Kolone koje se prikazuju ako podešavanje nije zadato.
+     *
+     * @return list<string>
+     */
+    public static function podrazumevaneKolone(): array
+    {
+        return ['clan', 'period', 'iznos', 'datum', 'nacin', 'referenca', 'evidentirao'];
+    }
+
+    public static function kljucPodesavanjaKolona(): string
+    {
+        return 'uplate_kolone';
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns(static::koloneTabele())
             ->filters([
                 Tables\Filters\SelectFilter::make('nacin')
                     ->label('Način plaćanja')

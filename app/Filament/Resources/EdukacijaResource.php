@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ImaIzborKolona;
 use App\Filament\Resources\EdukacijaResource\Pages;
 use App\Models\Edukacija;
 use App\Services\EdukacijaService;
@@ -14,6 +15,8 @@ use Filament\Tables\Table;
 
 class EdukacijaResource extends Resource
 {
+    use ImaIzborKolona;
+
     protected static ?string $model = Edukacija::class;
     protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
     protected static ?string $navigationGroup = 'Edukacije';
@@ -86,38 +89,133 @@ class EdukacijaResource extends Resource
             ]);
     }
 
-    public static function table(Table $table): Table
+    /**
+     * Kolone koje se mogu prikazati na listi edukacija.
+     *
+     * Izbor se čuva u podešavanju `edukacije_kolone`
+     * (Administracija → Konfiguracija sistema).
+     *
+     * @return array<string, array{label: string, kolona: \Closure}>
+     */
+    public static function dostupneKolone(): array
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('naziv')
+        return [
+            'naziv' => [
+                'label' => 'Naziv',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('naziv')
+                    ->label('Naziv')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('datum_pocetka')
+            ],
+            'datum_pocetka' => [
+                'label' => 'Datum',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('datum_pocetka')
                     ->label('Datum')
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('lokacija')
+            ],
+            'datum_zavrsetka' => [
+                'label' => 'Završetak',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('datum_zavrsetka')
+                    ->label('Završetak')
+                    ->dateTime('d.m.Y H:i')
+                    ->sortable(),
+            ],
+            'lokacija' => [
+                'label' => 'Lokacija',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('lokacija')
+                    ->label('Lokacija')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('bodovi')
+            ],
+            'predavaci' => [
+                'label' => 'Predavači',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('predavaci')
+                    ->label('Predavači')
+                    ->searchable()
+                    ->limit(40),
+            ],
+            'bodovi' => [
+                'label' => 'Bodovi',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('bodovi')
+                    ->label('Bodovi')
                     ->numeric()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('prijavljeni_count')
+            ],
+            'kapacitet' => [
+                'label' => 'Kapacitet',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('kapacitet')
+                    ->label('Kapacitet')
+                    ->numeric()
+                    ->sortable(),
+            ],
+            'prijavljeni_count' => [
+                'label' => 'Prijavljeno',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('prijavljeni_count')
                     ->label('Prijavljeno')
-                    ->getStateUsing(fn (Edukacija $record): string => 
+                    ->getStateUsing(fn (Edukacija $record): string =>
                         $record->prijavljeni_count . ($record->kapacitet ? '/' . $record->kapacitet : '')
                     ),
-                Tables\Columns\TextColumn::make('prisutni_count')
+            ],
+            'prisutni_count' => [
+                'label' => 'Prisutno',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('prisutni_count')
                     ->label('Prisutno')
                     ->getStateUsing(fn (Edukacija $record): string => (string) $record->prisutni_count),
-                Tables\Columns\TextColumn::make('status')
+            ],
+            'akreditacioni_broj' => [
+                'label' => 'Akreditacioni broj',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('akreditacioni_broj')
+                    ->label('Akreditacioni broj')
+                    ->searchable(),
+            ],
+            'vrsta_kme' => [
+                'label' => 'Vrsta KME',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('vrsta_kme')
+                    ->label('Vrsta KME')
+                    ->sortable(),
+            ],
+            'ciljna_grupa' => [
+                'label' => 'Ciljna grupa',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('ciljna_grupa')
+                    ->label('Ciljna grupa')
+                    ->limit(40),
+            ],
+            'status' => [
+                'label' => 'Status',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'planirana' => 'info',
                         'odrzana' => 'success',
                         'otkazana' => 'danger',
                     }),
-            ])
+            ],
+        ];
+    }
+
+    /**
+     * Kolone koje se prikazuju ako podešavanje nije zadato.
+     *
+     * @return list<string>
+     */
+    public static function podrazumevaneKolone(): array
+    {
+        return [
+            'naziv', 'datum_pocetka', 'lokacija', 'bodovi',
+            'prijavljeni_count', 'prisutni_count', 'status',
+        ];
+    }
+
+    public static function kljucPodesavanjaKolona(): string
+    {
+        return 'edukacije_kolone';
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns(static::koloneTabele())
             ->filters([
                 Tables\Filters\SelectFilter::make('status')
                     ->options([

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ImaIzborKolona;
 use App\Filament\Resources\ClanarinaPeriodResource\Pages;
 use App\Models\ClanarinaPeriod;
 use Filament\Forms;
@@ -12,6 +13,8 @@ use Filament\Tables\Table;
 
 class ClanarinaPeriodResource extends Resource
 {
+    use ImaIzborKolona;
+
     protected static ?string $model = ClanarinaPeriod::class;
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
     protected static ?string $navigationGroup = 'Finansije';
@@ -52,15 +55,27 @@ class ClanarinaPeriodResource extends Resource
             ->columns(2);
     }
 
-    public static function table(Table $table): Table
+    /**
+     * Kolone koje se mogu prikazati na listi perioda članarine.
+     *
+     * Izbor se čuva u podešavanju `clanarina_periodi_kolone`
+     * (Administracija → Konfiguracija sistema).
+     *
+     * @return array<string, array{label: string, kolona: \Closure}>
+     */
+    public static function dostupneKolone(): array
     {
-        return $table
-            ->columns([
-                Tables\Columns\TextColumn::make('naziv')
+        return [
+            'naziv' => [
+                'label' => 'Naziv',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('naziv')
                     ->label('Naziv')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('vrsta')
+            ],
+            'vrsta' => [
+                'label' => 'Vrsta',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('vrsta')
                     ->label('Vrsta')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'godisnje' => 'Godišnje',
@@ -74,22 +89,56 @@ class ClanarinaPeriodResource extends Resource
                         'mesecno' => 'info',
                         'kvartalno' => 'warning',
                     }),
-                Tables\Columns\TextColumn::make('vazi_od')
+            ],
+            'vazi_od' => [
+                'label' => 'Od',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('vazi_od')
                     ->label('Od')
                     ->date('d.m.Y')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('vazi_do')
+            ],
+            'vazi_do' => [
+                'label' => 'Do',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('vazi_do')
                     ->label('Do')
                     ->date('d.m.Y')
                     ->sortable(),
-                Tables\Columns\IconColumn::make('aktivan')
+            ],
+            'aktivan' => [
+                'label' => 'Aktivan',
+                'kolona' => fn () => Tables\Columns\IconColumn::make('aktivan')
                     ->label('Aktivan')
                     ->boolean(),
-                Tables\Columns\TextColumn::make('clanarine_count')
+            ],
+            'clanarine_count' => [
+                'label' => 'Zaduženja',
+                'kolona' => fn () => Tables\Columns\TextColumn::make('clanarine_count')
                     ->label('Zaduženja')
                     ->counts('clanarine')
                     ->sortable(),
-            ])
+            ],
+        ];
+    }
+
+    /**
+     * Kolone koje se prikazuju ako podešavanje nije zadato.
+     *
+     * @return list<string>
+     */
+    public static function podrazumevaneKolone(): array
+    {
+        return ['naziv', 'vrsta', 'vazi_od', 'vazi_do', 'aktivan', 'clanarine_count'];
+    }
+
+    public static function kljucPodesavanjaKolona(): string
+    {
+        return 'clanarina_periodi_kolone';
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns(static::koloneTabele())
             ->filters([
                 Tables\Filters\SelectFilter::make('vrsta')
                     ->label('Vrsta')

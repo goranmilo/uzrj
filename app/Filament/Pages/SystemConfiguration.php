@@ -2,7 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\ClanarinaPeriodResource;
+use App\Filament\Resources\ClanarinaResource;
 use App\Filament\Resources\ClanResource;
+use App\Filament\Resources\EdukacijaResource;
+use App\Filament\Resources\UplataResource;
 use App\Models\Podesavanje;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -44,8 +48,10 @@ class SystemConfiguration extends Page implements HasForms
             'adresa_udruzenja' => Podesavanje::get('adresa_udruzenja', ''),
             'email_udruzenja' => Podesavanje::get('email_udruzenja', ''),
             'telefon_udruzenja' => Podesavanje::get('telefon_udruzenja', ''),
-            'clanovi_kolone' => ClanResource::izabraneKolone(),
-        ]);
+        ] + array_map(
+            fn (string $resurs): array => $resurs::izabraneKolone(),
+            static::listeSaIzboromKolona(),
+        ));
     }
 
     /**
@@ -106,18 +112,21 @@ class SystemConfiguration extends Page implements HasForms
             Forms\Components\Section::make('Prikaz liste članova')
                 ->description('Kolone koje se prikazuju na stranici Članstvo → Članovi.')
                 ->schema([
-                    Forms\Components\CheckboxList::make('clanovi_kolone')
-                        ->label('Kolone')
-                        ->options(
-                            collect(ClanResource::dostupneKolone())
-                                ->map(fn (array $kolona): string => $kolona['label'])
-                                ->all()
-                        )
-                        ->columns(3)
-                        ->bulkToggleable()
-                        ->minItems(1)
-                        ->required()
-                        ->helperText('Redosled kolona je fiksan; prikazuju se samo označene.'),
+                    $this->izborKolona(ClanResource::class, 'Kolone'),
+                ]),
+
+            Forms\Components\Section::make('Prikaz liste edukacija')
+                ->description('Kolone koje se prikazuju na stranici Edukacije → Edukacije.')
+                ->schema([
+                    $this->izborKolona(EdukacijaResource::class, 'Kolone'),
+                ]),
+
+            Forms\Components\Section::make('Prikaz lista u finansijama')
+                ->description('Kolone koje se prikazuju na stranicama Finansije → Članarine, Uplate i Periodi članarine.')
+                ->schema([
+                    $this->izborKolona(ClanarinaResource::class, 'Članarine'),
+                    $this->izborKolona(UplataResource::class, 'Uplate'),
+                    $this->izborKolona(ClanarinaPeriodResource::class, 'Periodi članarine'),
                 ]),
 
             Forms\Components\Section::make('Podaci o udruženju')
@@ -143,6 +152,41 @@ class SystemConfiguration extends Page implements HasForms
         ];
     }
 
+    /**
+     * Resursi čije kolone admin bira, po ključu podešavanja.
+     *
+     * @return array<string, class-string>
+     */
+    protected static function listeSaIzboromKolona(): array
+    {
+        return collect([
+            ClanResource::class,
+            EdukacijaResource::class,
+            ClanarinaResource::class,
+            UplataResource::class,
+            ClanarinaPeriodResource::class,
+        ])->mapWithKeys(fn (string $resurs): array => [$resurs::kljucPodesavanjaKolona() => $resurs])->all();
+    }
+
+    /**
+     * Izbor kolona za listu resursa (vidi {@see \App\Filament\Concerns\ImaIzborKolona}).
+     */
+    protected function izborKolona(string $resurs, string $label): Forms\Components\CheckboxList
+    {
+        return Forms\Components\CheckboxList::make($resurs::kljucPodesavanjaKolona())
+            ->label($label)
+            ->options(
+                collect($resurs::dostupneKolone())
+                    ->map(fn (array $kolona): string => $kolona['label'])
+                    ->all()
+            )
+            ->columns(3)
+            ->bulkToggleable()
+            ->minItems(1)
+            ->required()
+            ->helperText('Redosled kolona je fiksan; prikazuju se samo označene.');
+    }
+
     public function save(): void
     {
         $data = $this->form->getState();
@@ -152,8 +196,7 @@ class SystemConfiguration extends Page implements HasForms
             $tip = match ($kljuc) {
                 'godisnji_prag_bodova', 'ukupan_prag_bodova', 'licencni_period_god', 'dani_pre_isteka_upozorenje' => 'integer',
                 'pro_rata_racunanje' => 'boolean',
-                'clanovi_kolone' => 'json',
-                default => 'string',
+                default => str_ends_with($kljuc, '_kolone') ? 'json' : 'string',
             };
 
             Podesavanje::set($kljuc, $vrednost, $tip);

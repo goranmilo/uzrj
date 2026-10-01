@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ImaIzborKolona;
 use App\Filament\Resources\ClanResource\Pages;
 use App\Filament\Resources\ClanResource\RelationManagers;
 use App\Models\Clan;
-use App\Models\Podesavanje;
 use App\Rules\Jmbg;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ClanResource extends Resource
 {
+    use ImaIzborKolona;
+
     protected static ?string $model = Clan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
@@ -304,22 +306,9 @@ class ClanResource extends Resource
         ];
     }
 
-    /**
-     * Izabrane kolone iz podešavanja, u redosledu iz kataloga.
-     *
-     * @return list<string>
-     */
-    public static function izabraneKolone(): array
+    public static function kljucPodesavanjaKolona(): string
     {
-        $izabrane = Podesavanje::get('clanovi_kolone');
-
-        if (! is_array($izabrane) || $izabrane === []) {
-            $izabrane = static::podrazumevaneKolone();
-        }
-
-        $poredak = array_keys(static::dostupneKolone());
-
-        return array_values(array_intersect($poredak, $izabrane));
+        return 'clanovi_kolone';
     }
 
     public static function getEloquentQuery(): Builder
@@ -332,14 +321,8 @@ class ClanResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $katalog = static::dostupneKolone();
-
         return $table
-            ->columns(
-                collect(static::izabraneKolone())
-                    ->map(fn (string $kljuc) => ($katalog[$kljuc]['kolona'])())
-                    ->all()
-            )
+            ->columns(static::koloneTabele())
             ->filters([
                 Tables\Filters\SelectFilter::make('odeljenje_id')
                     ->label('Odeljenje')
