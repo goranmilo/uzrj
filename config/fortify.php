@@ -131,7 +131,8 @@ return [
     |
     */
 
-    'views' => true,
+    // Isključeno: jedina prijava je Filament panel (/admin/login); bez view-a GET /login je bacao LoginViewResponse grešku.
+    'views' => false,
 
     /*
     |--------------------------------------------------------------------------
