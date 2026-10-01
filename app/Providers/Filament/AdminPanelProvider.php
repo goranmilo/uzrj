@@ -3,7 +3,6 @@
 namespace App\Providers\Filament;
 
 use App\Support\Tema;
-use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -13,14 +12,14 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
-use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\HtmlString;
 use Filament\Widgets;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -41,7 +40,13 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Tema::paleta($tema['primary']),
                 'secondary' => Tema::paleta($tema['accent']),
             ])
-            ->defaultThemeMode($tema['dark_mode'] ? ThemeMode::Dark : ThemeMode::Light)
+            // Filament inače nudi i svoj prekidač svetla/tamna/sistemski (pored
+            // avatara), koji pamti izbor po pregledaču (localStorage) i od tog
+            // trenutka trajno ignoriše podešavanje iz baze za taj pregledač —
+            // zbog toga je "Tamni režim" u Konfiguraciji sistema delovao mrtav.
+            // darkMode(condition, isForced) gasi taj prekidač i čini
+            // tema_dark_mode jedinim izvorom istine za sve korisnike.
+            ->darkMode(condition: $tema['dark_mode'], isForced: $tema['dark_mode'])
             ->navigationGroups([
                 NavigationGroup::make()
                     ->label('Članstvo')
