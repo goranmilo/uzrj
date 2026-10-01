@@ -27,7 +27,7 @@ class ClanTrendChart extends ChartWidget
 
         for ($i = 11; $i >= 0; $i--) {
             $date = Carbon::now()->subMonths($i);
-            $months->push($date->format('M Y'));
+            $months->push($date->translatedFormat('M Y'));
             
             $count = Clan::whereYear('datum_uclanjenja', $date->year)
                 ->whereMonth('datum_uclanjenja', $date->month)
