@@ -130,8 +130,18 @@ class TwoFactorSetup extends Page implements HasForms
         ];
     }
 
+    /**
+     * Isključeno dok 2FA ne bude stvarno urađen: stranica poziva nepostojeće
+     * metode (generateRecoveryCodes, confirmTwoFactor), a Filament login
+     * ionako ne traži 2FA kod — prikazivala bi lažnu zaštitu.
+     */
+    public static function canAccess(): bool
+    {
+        return false;
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
-        return Auth::user()?->isAdmin() ?? false;
+        return static::canAccess() && (Auth::user()?->isAdmin() ?? false);
     }
 }

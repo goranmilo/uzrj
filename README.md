@@ -11,13 +11,13 @@ strukovnog udruženja zdravstvenih radnika Republike Srbije.
 ## Status
 
 - **Faza:** Faza 1 — MVP (u razvoju)
-- **Stek:** Laravel 13 · PHP 8.3 · Filament 3 · PostgreSQL 16 · Fortify (2FA)
+- **Stek:** Laravel 13 · PHP 8.3 · Filament 3 · PostgreSQL 16
 - **Detaljna specifikacija:** vidi
   [`Plan_aplikacije_udruzenje_zdravstvenih_radnika.md`](./Plan_aplikacije_udruzenje_zdravstvenih_radnika.md)
 
 ## Faze razvoja
 
-1. **Faza 1 — MVP**: Auth + 2FA (admin/operater), CRUD članova + šifarnici,
+1. **Faza 1 — MVP**: Auth (admin/operater; 2FA još nije urađen), CRUD članova + šifarnici,
    članarina (zaduženja, uplate, dug), edukacije + QR čekiranje + bodovi,
    interni dashboard, mesečni e-mail izveštaj.
 2. **Faza 2**: Samouslužni portal člana, KME potvrde (PDF), napredni

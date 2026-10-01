@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Observers\AuditObserver;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Fortify\Fortify;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -35,7 +36,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Jedina prijava je Filament panel. Fortify ostaje samo zbog
+        // TwoFactorAuthenticatable traita na User modelu (2FA još nije urađen).
+        Fortify::ignoreRoutes();
     }
 
     /**

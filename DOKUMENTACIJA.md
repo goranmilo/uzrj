@@ -57,7 +57,7 @@
 | Frontend | Livewire + Alpine.js + Tailwind CSS | 3.x |
 | Admin panel | Filament | 3.x |
 | Baza podataka | PostgreSQL | 16 |
-| Auth + 2FA | Laravel Fortify | - |
+| Auth | Filament login (2FA još nije urađen, vidi 12.4) | - |
 | Uloge/permisije | spatie/laravel-permission | 8.x |
 | Excel import/export | maatwebsite/excel | 3.x |
 | PDF generisanje | barryvdh/laravel-dompdf | 3.x |
@@ -140,7 +140,7 @@ uzrj/
 │   │   │   ├── QrScanner.php                  # Skeniranje QR kodova
 │   │   │   ├── SystemConfiguration.php        # Konfiguracija sistema
 │   │   │   ├── ThemeSettings.php              # Podešavanje teme
-│   │   │   └── TwoFactorSetup.php             # 2FA podešavanja
+│   │   │   └── TwoFactorSetup.php             # 2FA podešavanja (isključeno, vidi 12.4)
 │   │   ├── Resources/
 │   │   │   ├── AktuelnostResource.php         # Upravljanje vestima
 │   │   │   ├── AuditLogResource.php           # Audit log
@@ -444,7 +444,7 @@ Relevantne metode u `BodoviService`:
 
 - CRUD korisnika
 - Dodela uloga (admin/operater)
-- 2FA status
+- 2FA status (kolona postoji, 2FA još nije urađen)
 - Reset lozinke
 
 ### 7.2 Šifarnici
@@ -641,6 +641,17 @@ php artisan test
 ### 12.3 Grafikon boje
 - Grafikon na dashboard-u koristi Filament-ove podrazumevane boje
 - Ne menja se automatski sa temom (zahteva dodatnu konfiguraciju widgeta)
+
+### 12.4 Dvofaktorska autentifikacija (2FA) nije urađena
+Specifikacija traži 2FA za admina i operatera već u Fazi 1, ali on ne postoji:
+- Prijava je običan Filament `->login()`, koji u Filamentu 3 ne traži 2FA kod
+- Stranica `TwoFactorSetup` je bila nedovršena (poziva nepostojeće metode
+  `generateRecoveryCodes` i `confirmTwoFactor`), pa je isključena kroz
+  `canAccess()` da ne bi prikazivala lažnu zaštitu
+- Fortify rute su isključene (`Fortify::ignoreRoutes()` u `AppServiceProvider`);
+  paket ostaje samo zbog `TwoFactorAuthenticatable` traita na `User` modelu
+
+Za pravi 2FA: paket za Filament 3 ili prelazak na Filament 4 (ugrađen MFA).
 
 ---
 

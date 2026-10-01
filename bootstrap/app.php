@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\ApplyTheme::class,
         ]);
 
-        // Fortify views su isključeni, pa ruta 'login' ne postoji — jedina prijava je Filament panel.
+        // Fortify rute su isključene, pa ruta 'login' ne postoji — jedina prijava je Filament panel.
         $middleware->redirectGuestsTo('/admin/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
