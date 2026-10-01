@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\AvatarProviders\InicijaliAvatarProvider;
 use App\Support\Tema;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -36,6 +37,7 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->brandName('UZRJ — Upravljanje članstvom')
             ->favicon(asset('images/favicon.ico'))
+            ->defaultAvatarProvider(InicijaliAvatarProvider::class)
             ->colors([
                 'primary' => Tema::paleta($tema['primary']),
                 'secondary' => Tema::paleta($tema['accent']),
