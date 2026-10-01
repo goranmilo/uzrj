@@ -51,7 +51,12 @@ php artisan migrate --force
 poruka "Asset-i i keš"
 php artisan filament:assets
 php artisan optimize:clear
-php artisan optimize
+# Ne `optimize`: njegov view:cache bi napravio view-ove u vlasništvu deploy-a,
+# a www-data (PHP-FPM) ne može da im radi touch() → 500 na celom panelu.
+# View-ove www-data kompajlira sam pri prvom zahtevu.
+php artisan config:cache
+php artisan event:cache
+php artisan route:cache
 php artisan filament:cache-components
 
 poruka "Queue worker"

@@ -111,8 +111,15 @@ MAIL_FROM_NAME="UZRJ"
 ### Prvo pokretanje
 
 ```bash
-php artisan migrate --force && php artisan db:seed --force && php artisan filament:assets && php artisan optimize && php artisan filament:cache-components
+php artisan migrate --force && php artisan db:seed --force && php artisan filament:assets && php artisan config:cache && php artisan event:cache && php artisan route:cache && php artisan filament:cache-components
 ```
+
+> **Ne pokretati `php artisan optimize` ni `view:cache` kao `deploy`.** Kompajlirani
+> view-ovi bi pripali korisniku `deploy`, a PHP-FPM radi kao `www-data`. Blade
+> povremeno radi `touch()` na tim fajlovima, a to sme samo vlasnik, ne i grupa,
+> pa ceo panel pada sa 500 (`touch(): Utime failed: Operation not permitted`).
+> View-ove `www-data` kompajlira sam pri prvom zahtevu. Ako se to ipak desi:
+> `php artisan view:clear`.
 
 `db:seed` upisuje uloge, šifarnike, podešavanja i dva naloga. Demo podaci
 (`EdukacijaSeeder`, `FinansijeSeeder`) nisu deo `DatabaseSeeder`, pa ne ulaze u
@@ -194,6 +201,10 @@ ručno.
 
 - **Tema:** boje panela se čitaju iz baze i keširaju, pa posle promene teme
   treba `php artisan filament:cache-components`
+- **Keš posle ručne izmene na serveru:** `php artisan optimize:clear`, pa
+  `config:cache`, `event:cache` i `route:cache` — bez `optimize` (vidi 5. korak).
+  Proveri sa `curl -s -o /dev/null -w '%{http_code}' http://localhost/admin/login`
+  (mora 200)
 - **Privremeni upload-i:** fajlovi poslati kroz uvoz članova ostaju u
   `storage/app/private/livewire-tmp` do 24h; Livewire ih sam briše
 - **Logovi:** `storage/logs/laravel.log` raste — dodaj logrotate ili postavi
