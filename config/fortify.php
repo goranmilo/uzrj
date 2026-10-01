@@ -162,7 +162,8 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Registracija isključena — korisnike (admin/operater) kreira admin kroz panel.
+        // Features::registration(),
         Features::resetPasswords(),
         // Features::emailVerification(),
         Features::updateProfileInformation(),
